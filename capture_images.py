@@ -6,7 +6,7 @@ import numpy as np
 # --- Use your robot driver ---
 from ctu_crs import CRS97  # or CRS93
 
-z = 0.2  # default Z to use when moving
+z = 0.054  # default Z to use when moving
 
 # -------- cross-platform single-keypress helpers --------
 def read_single_keypress():
@@ -59,11 +59,59 @@ def prompt_float(prompt_text: str) -> float:
         except ValueError:
             print("Invalid number. Try again (example: 12.34).")
 
-def move_robot_xy(robot, x: float, y: float, z_value: float):
+def move_robot_xy(robot, position: np.ndarray):
     """
     Move the robot to a position using closest IK solution, as per user-provided example.
     """
-    #TODO
+
+    rotation_euler = np.array([-0.06, np.pi + 0.05, 0.0])
+    target_pose = np.eye(4)
+
+
+    R_x = np.array([[1, 0, 0],
+                    [0, np.cos(rotation_euler[0]), -np.sin(rotation_euler[0])],
+                    [0, np.sin(rotation_euler[0]), np.cos(rotation_euler[0])]])
+    R_y = np.array([[np.cos(rotation_euler[1]), 0, np.sin(rotation_euler[1])],
+                    [0, 1, 0],
+                    [-np.sin(rotation_euler[1]), 0, np.cos(rotation_euler[1])]])
+    R_z = np.array([[np.cos(rotation_euler[2]), -np.sin(rotation_euler[2]), 0],
+                    [np.sin(rotation_euler[2]), np.cos(rotation_euler[2]), 0],
+                    [0, 0, 1]])
+    R = R_z @ R_y @ R_x
+    target_pose[:3, :3] = R
+    target_pose[:3, 3] = position
+
+    print(target_pose)
+
+    ik_sols = robot.ik(target_pose)
+    if len(ik_sols) == 0:
+        raise RuntimeError("No IK solutions found for the target position.")
+    
+    closest_solution = min(ik_sols, key=lambda q: np.linalg.norm(q - robot.get_q()))
+    robot.move_to_q(closest_solution)
+    robot.wait_for_motion_stop()
+
+
+def get_photo_positions(points_horizontal: int, points_vertical: int):
+    """
+    Interpolates the corner positions to get the photo positions.
+    """
+
+    left_bottom_corner = np.array([0.40, -0.2, 0.054])
+    left_top_corner = np.array([0.250, -0.2, 0.054])
+    right_top_corner = np.array([0.250, 0.2, 0.054])
+    right_bottom_corner = np.array([0.40, 0.2, 0.054])
+
+    diff_horiz_bottom = (right_bottom_corner - left_bottom_corner) / (points_horizontal - 1)
+    diff_horiz_top = (right_top_corner - left_top_corner) / (points_horizontal - 1)
+
+    photo_positions = []
+    for i in range(points_horizontal):
+        for j in range(points_vertical):
+            pos = left_bottom_corner + diff_horiz_bottom * i + (left_top_corner + diff_horiz_top * i - left_bottom_corner - diff_horiz_bottom * i) / (points_vertical - 1) * j
+            photo_positions.append(pos)
+
+    return photo_positions
 
 def main():
     out_dir = Path("images")
@@ -72,34 +120,18 @@ def main():
     robot = CRS97()
     try:
         print("Initializing robot...")
-        robot.initialize()
+        if (wait_for_key("Press 's' to skip full initialization, or any other key to continue.", valid=("s",)) == 's'):
+            print("Skipping full initialization.")
+            robot.initialize(home=False)
+            robot.move_to_q(robot.q_home)
+            robot.wait_for_motion_stop()
+        else:
+            robot.initialize()
 
-        while True:
-            # 1) Get target X/Y first
-            print("\nEnter target coordinates (Esc at any prompt to quit).")
-            x_str = input("Enter X coordinate (decimal): ").strip()
-            if x_str == "":
-                print("Empty input detected. Exiting.")
-                break
+        for position in get_photo_positions(5, 5):
+            print(f"Moving robot to position: x={position[0]:.3f}, y={position[1]:.3f}, z={position[2]:.3f}")
             try:
-                x_val = float(x_str)
-            except ValueError:
-                print("Invalid X number. Please start over.")
-                continue
-
-            y_str = input("Enter Y coordinate (decimal): ").strip()
-            if y_str == "":
-                print("Empty input detected. Exiting.")
-                break
-            try:
-                y_val = float(y_str)
-            except ValueError:
-                print("Invalid Y number. Please start over.")
-                continue
-
-            print(f"Moving robot to X={x_val:.3f}, Y={y_val:.3f}, Z={z:.3f} ...")
-            try:
-                move_robot_xy(robot, x_val, y_val, z)
+                move_robot_xy(robot, position)
             except KeyboardInterrupt:
                 print("\nInterrupted during move. Exiting.")
                 break
@@ -128,7 +160,7 @@ def main():
                 elif action == 'k':
                     break
 
-            fname = f"x_{safe_coord_str(x_val)}__y_{safe_coord_str(y_val)}.png"
+            fname = f"x_{safe_coord_str(position[0])}__y_{safe_coord_str(position[1])}.png"
             fpath = out_dir / fname
             ok = cv2.imwrite(str(fpath), img)
             if ok:
