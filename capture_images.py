@@ -6,6 +6,8 @@ import numpy as np
 # --- Use your robot driver ---
 from ctu_crs import CRS97  # or CRS93
 
+z = 0.2  # default Z to use when moving
+
 # -------- cross-platform single-keypress helpers --------
 def read_single_keypress():
     import sys, tty, termios
@@ -35,13 +37,11 @@ def show_image_and_get_action(img: np.ndarray) -> str:
     """
     Show image and wait for a decision:
       - 'k' keep
-      - 'r' retake
       - Esc to quit
-    Returns 'k', 'r', or 'esc'
+    Returns 'k' or 'esc'
     """
-    window = "Preview (k=keep, r=retake, Esc=quit)"
+    window = "Preview (k=keep, Esc=quit)"
     cv2.imshow(window, img)
-    # Wait indefinitely for a key
     while True:
         key = cv2.waitKey(0) & 0xFF
         if key in (ord('k'), ord('K')):
@@ -50,6 +50,20 @@ def show_image_and_get_action(img: np.ndarray) -> str:
         elif key == 27:
             cv2.destroyWindow(window)
             return 'esc'
+
+def prompt_float(prompt_text: str) -> float:
+    while True:
+        try:
+            s = input(prompt_text).strip()
+            return float(s)
+        except ValueError:
+            print("Invalid number. Try again (example: 12.34).")
+
+def move_robot_xy(robot, x: float, y: float, z_value: float):
+    """
+    Move the robot to a position using closest IK solution, as per user-provided example.
+    """
+    #TODO
 
 def main():
     out_dir = Path("images")
@@ -61,60 +75,67 @@ def main():
         robot.initialize()
 
         while True:
-            ch = wait_for_key("Press 'q' to TAKE a picture (Esc to quit).", valid=("q",))
-            if ord(ch) == 27:
-                print("Exiting.")
+            # 1) Get target X/Y first
+            print("\nEnter target coordinates (Esc at any prompt to quit).")
+            x_str = input("Enter X coordinate (decimal): ").strip()
+            if x_str == "":
+                print("Empty input detected. Exiting.")
                 break
+            try:
+                x_val = float(x_str)
+            except ValueError:
+                print("Invalid X number. Please start over.")
+                continue
+
+            y_str = input("Enter Y coordinate (decimal): ").strip()
+            if y_str == "":
+                print("Empty input detected. Exiting.")
+                break
+            try:
+                y_val = float(y_str)
+            except ValueError:
+                print("Invalid Y number. Please start over.")
+                continue
+
+            print(f"Moving robot to X={x_val:.3f}, Y={y_val:.3f}, Z={z:.3f} ...")
+            try:
+                move_robot_xy(robot, x_val, y_val, z)
+            except KeyboardInterrupt:
+                print("\nInterrupted during move. Exiting.")
+                break
+            except Exception as e:
+                print(f"Error while moving robot: {e}")
+                continue
 
             print("Capturing...")
-            img = robot.grab_image()
+            while True:
+                img = robot.grab_image()
 
-            if img is None:
-                print("Error: grab_image() returned None. Trying again...")
-                continue
+                if img is None:
+                    print("Error: grab_image() returned None. Trying again...")
+                    continue
+                if not isinstance(img, np.ndarray):
+                    print("Error: Unexpected image type. Trying again...")
+                    continue
 
-            if not isinstance(img, np.ndarray):
-                print("Error: Unexpected image type. Trying again...")
-                continue
+                action = show_image_and_get_action(img)
+                if action == 'esc':
+                    print("Exiting.")
+                    return
+                elif action == 'r':
+                    print("Retaking...")
+                    continue
+                elif action == 'k':
+                    break
 
-            action = show_image_and_get_action(img)
-            if action == 'esc':
-                print("Exiting.")
-                break
-
-            elif action == 'k':
-                while True:
-                    try:
-                        x_str = input("Enter X coordinate (decimal): ").strip()
-                        x_val = float(x_str)
-                        break
-                    except ValueError:
-                        print("Invalid number. Try again (example: 12.34).")
-
-                while True:
-                    try:
-                        y_str = input("Enter Y coordinate (decimal): ").strip()
-                        y_val = float(y_str)
-                        break
-                    except ValueError:
-                        print("Invalid number. Try again (example: -5.75).")
-
-            # Build filename from X,Y
             fname = f"x_{safe_coord_str(x_val)}__y_{safe_coord_str(y_val)}.png"
             fpath = out_dir / fname
-
-            # Save PNG (lossless). If you prefer JPEG, switch to .jpg and add quality params.
             ok = cv2.imwrite(str(fpath), img)
             if ok:
                 print(f"Saved: {fpath.resolve()}")
             else:
                 print("Error: Failed to save image.")
 
-            # After saving, ask if user wants to take another
-            ch2 = wait_for_key("Press 'q' to take ANOTHER photo, or Esc to quit.", valid=("q",))
-            if ord(ch2) == 27:
-                print("Done.")
-                break
 
     except KeyboardInterrupt:
         print("\nInterrupted by user.")
@@ -130,6 +151,7 @@ def main():
             cv2.destroyAllWindows()
         except Exception:
             pass
+        print("Terminated.")
 
 if __name__ == "__main__":
     main()
