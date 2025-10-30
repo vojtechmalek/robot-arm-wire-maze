@@ -33,7 +33,7 @@ def safe_coord_str(val: float) -> str:
     s = s.replace(".", "p")    # dots are fine but make it consistent
     return s
 
-def show_image_and_get_action(img: np.ndarray) -> str:
+def show_image_and_get_action(img: np.ndarray, auto_keep: bool = False) -> str:
     """
     Show image and wait for a decision:
       - 'k' keep
@@ -42,6 +42,12 @@ def show_image_and_get_action(img: np.ndarray) -> str:
     """
     window = "Preview (k=keep, Esc=quit)"
     cv2.imshow(window, img)
+
+    if auto_keep:
+        cv2.waitKey(500)  # show for half a second
+        cv2.destroyWindow(window)
+        return 'k'
+
     while True:
         key = cv2.waitKey(0) & 0xFF
         if key in (ord('k'), ord('K')):
@@ -99,8 +105,8 @@ def get_photo_positions(points_horizontal: int, points_vertical: int):
 
     left_bottom_corner = np.array([0.40, -0.2, 0.054])
     left_top_corner = np.array([0.250, -0.2, 0.054])
-    right_top_corner = np.array([0.250, 0.2, 0.054])
-    right_bottom_corner = np.array([0.40, 0.2, 0.054])
+    right_top_corner = np.array([0.250, 0.15, 0.054])
+    right_bottom_corner = np.array([0.40, 0.15, 0.054])
 
     diff_horiz_bottom = (right_bottom_corner - left_bottom_corner) / (points_horizontal - 1)
     diff_horiz_top = (right_top_corner - left_top_corner) / (points_horizontal - 1)
@@ -150,7 +156,7 @@ def main():
                     print("Error: Unexpected image type. Trying again...")
                     continue
 
-                action = show_image_and_get_action(img)
+                action = show_image_and_get_action(img, auto_keep=True)
                 if action == 'esc':
                     print("Exiting.")
                     return
