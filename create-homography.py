@@ -9,11 +9,16 @@
 #   X, Y = Xw / w, Yw / w
 
 import os, re, glob, sys
+os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
 import cv2
 import numpy as np
 
 # Filenames must look like: x_<X>__y_<Y>.png  (e.g., x_100.0__y_250.0.png)
-FNAME_RE = re.compile(r"x_(-?\d+(?:\.\d+)?)__y_(-?\d+(?:\.\d+)?)\.png$", re.IGNORECASE)
+FNAME_RE = re.compile(r"x_([A-Za-z0-9.\-]+)__y_([A-Za-z0-9.\-]+)\.png$", re.IGNORECASE)
+
+def decode_coord(tok: str) -> float:
+    # supports "0.400" and "m0p200" styles
+    return float(tok.replace('m', '-').replace('p', '.'))
 
 def draw_cross(img, center, size=20, thickness=2):
     u, v = int(round(center[0])), int(round(center[1]))
@@ -51,7 +56,7 @@ def main():
         m = FNAME_RE.search(os.path.basename(path))
         if not m:
             continue
-        X, Y = float(m.group(1)), float(m.group(2))
+        X, Y = decode_coord(m.group(1)), decode_coord(m.group(2))
 
         img = cv2.imread(path, cv2.IMREAD_COLOR)
         if img is None:

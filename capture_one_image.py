@@ -6,7 +6,9 @@ robot = CRS97()
 
 try:
     print("Initializing robot...")
-    robot.initialize()
+    robot.initialize(home=False)
+    robot.move_to_q(robot.q_home)
+    robot.wait_for_motion_stop()
 
     print("Capturing image...")
     img = robot.grab_image()
