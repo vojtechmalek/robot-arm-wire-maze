@@ -2,3 +2,6 @@ cd ~
 wget https://update.code.visualstudio.com/latest/linux-x64/stable -O vscode.tar.gz
 tar -xzf vscode.tar.gz
 mv VSCode-linux-x64 vscode
+
+
+https://prod.liveshare.vsengsaas.visualstudio.com/join?089AD0098D6A54B9D61EE2F022A869A9E6B9
