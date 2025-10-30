@@ -33,6 +33,13 @@ try:
             center_of_centers = (center1 + center2) / 2
             cv2.circle(img_markers, tuple(center_of_centers.astype(int)), 5, (0, 255, 0), -1)
 
+        for i, corner in enumerate(corners):
+            # calculate angle of the marker
+            vector = corner[0][1] - corner[0][0]
+            angle = np.arctan2(vector[1], vector[0]) * 180 / np.pi
+            cv2.putText(img_markers, f"Angle: {angle:.1f}", tuple(corner[0][0].astype(int) - np.array([0, 10])),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+
         cv2.imshow("Detected Aruco Markers", img_markers)
         cv2.waitKey(0)
     else:

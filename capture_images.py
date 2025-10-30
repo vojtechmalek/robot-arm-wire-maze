@@ -65,7 +65,7 @@ def prompt_float(prompt_text: str) -> float:
         except ValueError:
             print("Invalid number. Try again (example: 12.34).")
 
-def move_robot_xy(robot, position: np.ndarray):
+def move_robot_xyz(robot, position: np.ndarray):
     """
     Move the robot to a position using closest IK solution, as per user-provided example.
     """
@@ -137,7 +137,7 @@ def main():
         for position in get_photo_positions(5, 5):
             print(f"Moving robot to position: x={position[0]:.3f}, y={position[1]:.3f}, z={position[2]:.3f}")
             try:
-                move_robot_xy(robot, position)
+                move_robot_xyz(robot, position)
             except KeyboardInterrupt:
                 print("\nInterrupted during move. Exiting.")
                 break
