@@ -1,11 +1,3 @@
-"""
-Test script for move_robot_by_ring_pose()
-
-This script moves the robot so that the ring center stays at (0.325, 0.0, 0.3)
-and changes the ring's orientation (RPY) to verify that the flange moves
-around the ring center as expected.
-"""
-
 import time
 import numpy as np
 from ctu_crs import CRS97
@@ -43,10 +35,10 @@ def main():
         robot.wait_for_motion_stop()
 
         print("\n--- Starting ring-center pose tests ---")
-        for i, rpy in enumerate(TEST_RPY_LIST, 1):
-            print(f"\n[{i}/{len(TEST_RPY_LIST)}] Moving ring to {RING_CENTER} with RPY={np.round(rpy,3)}")
+        for rpy in TEST_RPY_LIST:
+            print(f"Moving ring to {RING_CENTER} with RPY={np.round(rpy,3)}")
             try:
-                move_robot_by_ring_pose(robot, RING_CENTER, rpy)
+                move_robot_by_ring_pose(robot, RING_CENTER, rpy, True)
                 print("Move complete.")
             except Exception as e:
                 print(f"❌ Error at orientation {rpy}: {e}")
