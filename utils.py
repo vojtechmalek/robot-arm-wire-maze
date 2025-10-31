@@ -21,6 +21,32 @@ def rotz(a):
     c, s = np.cos(a), np.sin(a)
     return np.array([[c,-s,0],[s,c,0],[0,0,1]])
 
+def rotzyx(roll, pitch, yaw):
+    """ combined rotation matrix from roll, pitch, yaw angles """
+    R_x = rotx(roll)
+    R_y = roty(pitch)
+    R_z = rotz(yaw)
+    return R_z @ R_y @ R_x
+
+def rotzyx_se3(roll, pitch, yaw):
+    """ combined rotation matrix in 4x4 SE3 form from roll, pitch, yaw angles """
+    R = rotzyx(roll, pitch, yaw)
+    T = np.eye(4)
+    T[:3, :3] = R
+    return T
+
+
+########################## translation matrix ##########################
+
+def trans_se3(x, y, z):
+    return trans_se3_vec(np.array([x, y, z]))
+
+def trans_se3_vec(pos: np.ndarray):
+    T = np.eye(4)
+    T[0, 3] = pos[0]
+    T[1, 3] = pos[1]
+    T[2, 3] = pos[2]
+    return T
 
 ########################## Matrix operations ##########################
 
@@ -63,6 +89,19 @@ def move_robot_by_ring_pose(robot,
     target_pose[:3, :3] = R
     target_pose[:3, 3] = position
 
+    return move_robot_by_ring_pose_matrix(robot, target_pose, wait_for_motion_stop)
+    
+
+
+def move_robot_by_ring_pose_matrix(robot, se3_matrix, wait_for_motion_stop = True) -> bool:
+    """
+    Command the robot by the RING-CENTER pose as a 4x4 SE3 matrix,
+    but internally convert to the FLANGE pose for IK/motion.
+    - se3_matrix: 4x4 SE3 matrix of ring center in base frame
+    """
+
+    target_pose = se3_matrix
+
     movement_offset_matrix = np.eye(4)
     movement_offset_matrix[:3, 3] = np.array([HOOP_CENTER_DISTANCE, 0.0, 0.0])
     target_pose = target_pose @ movement_offset_matrix
@@ -71,7 +110,8 @@ def move_robot_by_ring_pose(robot,
     # Solve IK & move (reuses your logic)
     ik_sols = robot.ik(target_pose)
     if len(ik_sols) == 0:
-        raise RuntimeError("No IK solutions found for the target position.")
+        # raise RuntimeError("No IK solutions found for the target position.")
+        return False
     
     print(f"Found {len(ik_sols)} IK solutions.")
 
@@ -91,7 +131,6 @@ def move_robot_by_ring_pose(robot,
  
     print("No IK solutions found for the target position.")
     return False
-    
 
 ################################################################################
 # Find aruco marker center functions

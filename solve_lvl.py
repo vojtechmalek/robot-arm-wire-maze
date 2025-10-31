@@ -76,7 +76,8 @@ try:
 
     utils.move_robot_by_ring_pose(robot, base_center_robot + np.array([0.0, 0.0, 0.3]), np.array([0., np.pi, np.pi/2]))
 
-    for i in range(0, len(waypoints_raw), 5):
+    used_waypoints_indices = []
+    for i in range(0, len(waypoints_raw), 10):
         wp = waypoints_raw[i]
         pos = np.array(wp["pos"])
         rpy = np.array(wp["rpy"])
@@ -88,9 +89,36 @@ try:
         if position[2] < 0.06:
             break
 
+        used_waypoints_indices.append(i)
+
         utils.move_robot_by_ring_pose(robot, position, rotation_euler, False)
         # time.sleep(0.01)
 
+    time.sleep(2.0)
+
+    print("Moving robot back up...")
+
+
+    # Move robot back up
+    reversed_indices = used_waypoints_indices[::-1]
+    for i in reversed_indices:
+        wp = waypoints_raw[i]
+        pos = np.array(wp["pos"])
+        rpy = np.array(wp["rpy"])
+        print(f"Moving back to waypoint {i}: pos={pos}, rpy={rpy}")
+
+        position = base_center_robot + pos
+        rotation_euler = np.array([0., np.pi, np.pi/2])
+
+        utils.move_robot_by_ring_pose(robot, position, rotation_euler, False)
+        # time.sleep(0.01)
+
+    # home the robot
+    print("Homing the robot...")
+    robot.move_to_q(robot.q_home)
+    robot.wait_for_motion_stop()
+
+    print("LET'S GO DONE!")
 
 
 except Exception as e:
