@@ -23,8 +23,8 @@ right_bottom_corner = np.array([0.40, 0.2, 0.054])
 
 
 
-position = np.array([0.40, -0.2, 0.054])
-rotation_euler = np.array([-0.06, np.pi + 0.15, 0.0])
+position = np.array([0.251, -0.2, 0.254])
+rotation_euler = np.array([0, np.pi, 0.0])
 
 
 R_x = np.array([[1, 0, 0],

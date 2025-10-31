@@ -95,6 +95,8 @@ def main() -> None:
             continue
 
         X, Y = decode_coord(m.group(1)), decode_coord(m.group(2))
+        X = X + 0.135
+        
         img = cv2.imread(path, cv2.IMREAD_COLOR)
         if img is None:
             print(f"[warn] could not read {path}", file=sys.stderr)

@@ -23,13 +23,6 @@ def rotz(a):
 
 
 ########################## Matrix operations ##########################
-def rpy_to_R_zyx(roll, pitch, yaw):
-    """ convert roll, pitch, yaw to rotation matrix """
-    return rotz(yaw) @ roty(pitch) @ rotx(roll)
-
-def make_T(R, p):
-    """ create transformation matrix from rotation matrix and translation vector """
-    T = np.eye(4); T[:3,:3] = R; T[:3,3] = p; return T
 
 def inv_T(T):
     R = T[:3,:3]; p = T[:3,3]
@@ -40,18 +33,8 @@ def inv_T(T):
 
 ########################## Constants ##########################
 
-rpy_offset = np.array([-0.06, 0.05, 0.0])
+#rpy_offset = np.array([-0.06, 0.05, 0.0])
 HOOP_CENTER_DISTANCE = 0.135    # 135 mm
-
-# Convert the offset to a rotation matrix
-R_fr = rpy_to_R_zyx(rpy_offset[0], rpy_offset[1], rpy_offset[2])
-
-# Create a translation vector from the flange origin to the hoop center
-p_fr = R_fr @ np.array([HOOP_CENTER_DISTANCE, 0.0, 0.0])
-
-# Combine rotation (R_fr) and translation (p_fr) into a single 4x4 homogeneous matrix
-T_flange_to_ring = make_T(R_fr, p_fr)
-
 
 ########################## Move function ##########################
 
@@ -67,15 +50,26 @@ def move_robot_by_ring_pose(robot,
     - ring_rpy_zyx: [roll, pitch, yaw] of ring center (radians)
     """
 
-    # Build desired ring pose in base frame
-    R_base_ring = rpy_to_R_zyx(ring_rpy_zyx[0], ring_rpy_zyx[1], ring_rpy_zyx[2])
-    T_base_ring = make_T(R_base_ring, np.asarray(ring_position_xyz).reshape(3,))
+    position = ring_position_xyz
+    rotation_euler = ring_rpy_zyx
 
-    # Convert to flange pose expected by robot
-    T_base_flange = T_base_ring @ inv_T(T_flange_to_ring)
+
+    R_x = rotx(rotation_euler[0])
+    R_y = roty(rotation_euler[1])
+    R_z = rotz(rotation_euler[2])
+    R = R_z @ R_y @ R_x
+
+    target_pose = np.eye(4)
+    target_pose[:3, :3] = R
+    target_pose[:3, 3] = position
+
+    movement_offset_matrix = np.eye(4)
+    movement_offset_matrix[:3, 3] = np.array([HOOP_CENTER_DISTANCE, 0.0, 0.0])
+    target_pose = target_pose @ movement_offset_matrix
+
 
     # Solve IK & move (reuses your logic)
-    ik_sols = robot.ik(T_base_flange)
+    ik_sols = robot.ik(target_pose)
     if len(ik_sols) == 0:
         raise RuntimeError("No IK solutions found for the target position.")
     
@@ -87,15 +81,17 @@ def move_robot_by_ring_pose(robot,
     for q in ik_sols:
         try:
             robot.move_to_q(q)
-            robot.wait_for_motion_stop()
+            if wait_for_motion_stop:
+                print("Waiting for motion to stop...")
+                robot.wait_for_motion_stop()
             print("Moved to IK solution:", q)
             return True
         except Exception as e:
             print(f"Failed to move to IK solution {q}: {e}")
-            return False
-        
+ 
     print("No IK solutions found for the target position.")
     return False
+    
 
 ################################################################################
 # Find aruco marker center functions
