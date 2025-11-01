@@ -1,11 +1,9 @@
 import cv2
 import numpy as np
 
-default_angle_offset = -np.pi / 2  # -90 degrees in radians
-diagonal_to_base_rotation_offset = -np.pi / 4  # -45 degrees in radians
 distance_from_marker_to_center = 0.0375  # meters
-id1_distance_from_center = (-distance_from_marker_to_center, distance_from_marker_to_center)
-id2_distance_from_center = (distance_from_marker_to_center, -distance_from_marker_to_center)
+id1_distance_from_center = (distance_from_marker_to_center, distance_from_marker_to_center)
+id2_distance_from_center = (-distance_from_marker_to_center, -distance_from_marker_to_center)
 
 H = np.load("homography.npy")
 
@@ -40,8 +38,10 @@ def detect_base_position(img, display=False):
             vector = center2 - center1
 
             # Calculate angle in radians (atan2 returns angle in radians)
-            diagonal_angle = -np.arctan2(vector[1], vector[0])
-            base_rotation = diagonal_angle + diagonal_to_base_rotation_offset
+            angle = -np.arctan2(vector[1], vector[0])
+
+            # offset the angle to use robot coordinate system
+            base_rotation = angle + np.pi / 4
             
             # Normalize angle to [-π, π] range
             base_rotation = ((base_rotation + np.pi) % (2 * np.pi)) - np.pi
@@ -50,6 +50,20 @@ def detect_base_position(img, display=False):
             xy = H @ uv
             xy /= xy[2]
             base_center_robot = np.array([xy[0], xy[1], 0.054])
+            
+            # Calculate angles for each marker (for display)
+            marker_angles = {}
+            for i, marker_id in enumerate(ids_flat):
+                if marker_id == 1:
+                    idx = idx1[0]
+                elif marker_id == 2:
+                    idx = idx2[0]
+                else:
+                    continue
+                # Calculate marker orientation: vector from top-left to top-right corner
+                marker_vector = corners[idx][0][1] - corners[idx][0][0]
+                marker_angle = np.arctan2(marker_vector[1], marker_vector[0])
+                marker_angles[marker_id] = marker_angle
         
         elif len(ids) == 1:
             # Determine which marker ID was detected and use corresponding offset
@@ -64,27 +78,21 @@ def detect_base_position(img, display=False):
             base_center = np.mean(corners[0][0], axis=0)
             vector = corners[0][0][1] - corners[0][0][0]
             # atan2 returns angle in radians
-            angle = np.arctan2(vector[1], vector[0])
-            angle = -angle + default_angle_offset
-            
+            base_rotation = -np.arctan2(vector[1], vector[0])
+                 
             # Normalize angle to [-π, π] range
-            angle = ((angle + np.pi) % (2 * np.pi)) - np.pi
-            
+            base_rotation = ((base_rotation + np.pi) % (2 * np.pi)) - np.pi
+
             # Rotate the offset vector by the detected angle
-            cos_a = np.cos(angle)
-            sin_a = np.sin(angle)
+            cos_a = np.cos(base_rotation)
+            sin_a = np.sin(base_rotation)
             rotation_matrix = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
             rotated_offset = rotation_matrix @ offset_from_center
-            
-            # Apply rotated offset to marker center to get base center
-            base_rotation = angle
 
             uv = np.array([base_center[0], base_center[1], 1.0])
             xy = H @ uv
             xy /= xy[2]
-            print(f"arucu marker position: {xy}")
             base_center_robot = np.array([xy[0] + rotated_offset[0], xy[1] + rotated_offset[1], 0.054])
-            print(f"base center robot: {base_center_robot}")
 
         elif len(ids) == 0:
             raise ValueError("No markers detected.")
@@ -93,13 +101,12 @@ def detect_base_position(img, display=False):
         
         if display:
             img_markers = cv2.aruco.drawDetectedMarkers(img.copy(), corners, ids)
-            # Convert to degrees for display (optional - can change to show radians)
             angle_deg = base_rotation * 180 / np.pi
-            cv2.putText(img_markers, f"Rotation: {angle_deg:.1f} deg ({base_rotation:.3f} rad)", 
+            cv2.putText(img_markers, f"Base Rotation: {angle_deg:.1f} deg ({base_rotation:.3f} rad)", 
                         tuple(base_center.astype(int) - np.array([0, 10])),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
             cv2.circle(img_markers, tuple(base_center.astype(int)), 5, (0, 255, 0), -1)
             cv2.imshow("Detected Aruco Markers", img_markers)
             cv2.waitKey(0)
     
-    return base_center_robot, base_rotation
+    return base_center_robot, -base_rotation
