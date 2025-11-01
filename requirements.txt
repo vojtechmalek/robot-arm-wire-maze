@@ -1,3 +1,4 @@
-Flask>=2.0
-opencv-python>=4.5
-numpy>=1.19
+ctu_crs
+pybullet
+opencv-python
+numpy

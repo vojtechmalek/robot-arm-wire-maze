@@ -1,0 +1,233 @@
+<?xml version="1.0"?>
+<?xml-model href="https://raw.githubusercontent.com/ros/urdfdom/master/xsd/urdf.xsd"?>
+<robot name="sample_robot" xmlns:xacro="http://ros.org/wiki/xacro"
+>
+  <link name="base">
+    <inertial>
+      <origin xyz="0 0 0.1" rpy="0 0 0" />
+      <mass value="5.0" />
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.1" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.1" length="0.2" />
+      </geometry>
+      <material name="base_mat">
+        <color rgba="0.0 0.5 0.5 1.0" />
+      </material>
+    </visual>
+  </link>
+
+  <link name="arm1">
+    <inertial>
+      <origin xyz="0 0 0.065" rpy="0 0 0" />
+      <mass value="3.0" />
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.065" rpy="0 0 0" />
+      <geometry>
+        <box size="0.15 0.15 0.13" />
+      </geometry>
+      <material name="arm1_mat">
+        <color rgba="0.5 0.0 0.5 1.0" />
+        <texture filename="path/to/texture/image.png" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="base_to_arm1" type="revolute">
+    <parent link="base" />
+    <child link="arm1" />
+    <origin xyz="0 0 0.2" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+    <limit effort="10" lower="-2.95859488" upper="3.01043116" velocity="1" />
+  </joint>
+
+  <link name="arm2">
+    <inertial>
+      <origin xyz="0 0 0.1525" rpy="0 0 0" />
+      <mass value="2.5" />
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.1525" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.08" length="0.305" />
+      </geometry>
+      <material name="arm2_mat">
+        <color rgba="0.5 0.5 0.0 1.0" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="arm1_to_arm2" type="revolute">
+    <parent link="arm1" />
+    <child link="arm2" />
+    <origin xyz="0 0 0.13" rpy="0 0 0" />
+    <axis xyz="0 1 0" />
+    <limit effort="10" lower="-1.56531425" upper="1.57627841" velocity="1" />
+  </joint>
+
+  <link name="arm3">
+    <inertial>
+      <origin xyz="0 0 0.05" rpy="0 0 0" />
+      <mass value="1.5" />
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.05" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.07" length="0.1" />
+      </geometry>
+      <material name="arm3_mat">
+        <color rgba="0.0 0.5 0.0 1.0" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="arm2_to_arm3" type="revolute">
+    <parent link="arm2" />
+    <child link="arm3" />
+    <origin xyz="0 0 0.305" rpy="0 0 0" />
+    <axis xyz="0 1 0" />
+    <limit effort="10" lower="-1.966637" upper="2.00747771" velocity="1" />
+  </joint>
+
+  <link name="arm4">
+    <inertial>
+      <origin xyz="0 0 0.115" rpy="0 0 0" />
+      <mass value="2.0" />
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.115" rpy="0 0 0" />
+      <geometry>
+        <box size="0.1 0.1 0.23" />
+      </geometry>
+      <material name="arm4_mat">
+        <color rgba="0.5 0.5 0.5 1.0" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="arm3_to_arm4" type="revolute">
+    <parent link="arm3" />
+    <child link="arm4" />
+    <origin xyz="0 0 0.1" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+    <limit effort="10" lower="-3.24423875" upper="3.24112826" velocity="1" />
+  </joint>
+
+  <link name="arm5">
+    <inertial>
+      <origin xyz="0 0 0.028" rpy="0 0 0" />
+      <mass value="1.0" />
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.028" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.04" length="0.056" />
+      </geometry>
+      <material name="arm5_mat">
+        <color rgba="0.0 0.0 0.5 1.0" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="arm4_to_arm5" type="revolute">
+    <parent link="arm4" />
+    <child link="arm5" />
+    <origin xyz="0 0 0.23" rpy="0 0 0" />
+    <axis xyz="0 1 0" />
+    <limit effort="10" lower="-1.84411489" upper="1.83154852" velocity="1" />
+  </joint>
+
+  <link name="arm6">
+    <inertial>
+      <origin xyz="0 0 0.01" rpy="0 0 0" />
+      <mass value="0.8" />
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.01" rpy="0 0 0" />
+      <geometry>
+        <box size="0.06 0.06 0.02" />
+      </geometry>
+      <material name="arm6_mat">
+        <color rgba="0.5 0.0 0.0 1.0" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="arm5_to_arm6" type="revolute">
+    <parent link="arm5" />
+    <child link="arm6" />
+    <origin xyz="0 0 0.056" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+    <limit effort="10" lower="-3.14470314" upper="3.20380241" velocity="1" />
+  </joint>
+
+  <link name="end_effector">
+    <inertial>
+      <origin xyz="0.0675 0 0.005" rpy="0 0 0" />
+      <mass value="0.0" />
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0" />
+    </inertial>
+    <visual>
+      <origin xyz="0.0675 0 0.005" rpy="0 0 0" />
+      <geometry>
+        <box size="0.135 0.01 0.01" />
+      </geometry>
+      <material name="ee_mat">
+        <color rgba="0.2 0.2 0.2 1.0" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="arm6_to_ee" type="fixed">
+    <parent link="arm6" />
+    <child link="end_effector" />
+    <origin xyz="0 0 0.02" rpy="0 0 3.14159265359" />
+  </joint>
+
+  <link name="hoop">
+    <inertial>
+      <origin xyz="0 0 0.005" rpy="0 0 0" />
+      <mass value="0.0" />
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.005" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.06" length="0.01" />
+      </geometry>
+      <material name="hoop_mat">
+        <color rgba="1.0 0.84 0.0 1.0" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="ee_to_hoop" type="fixed">
+    <parent link="end_effector" />
+    <child link="hoop" />
+    <origin xyz="0.135 0 0" rpy="0 0 0" />
+  </joint>
+
+  <link name="robot_end_pos">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.0" />
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0" />
+    </inertial>
+  </link>
+
+  <joint name="arm6_to_robot_end_pos" type="fixed">
+    <parent link="arm6" />
+    <child link="robot_end_pos" />
+    <origin xyz="0 0 0.02" rpy="0 0 0" />
+  </joint>
+
+</robot>

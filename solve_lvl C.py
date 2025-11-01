@@ -1,11 +1,12 @@
 import cv2
 import numpy as np
 from ctu_crs import CRS97  # or CRS93
+from PybulletRobot import PybulletRobot
 import utils
 import json
 import time
 
-robot = CRS97()
+robot = PybulletRobot()
 
 def get_waypoint_pose(waypoint, base_center_robot, center_rot, angle_offset = 0.0) -> np.ndarray:
     pos = np.array(waypoint["pos"])
@@ -78,7 +79,7 @@ try:
         # scale down for display
         img_markers = cv2.resize(img_markers, (0,0), fx=0.5, fy=0.5)
         cv2.imshow("Detected Aruco Markers", img_markers)
-        # cv2.waitKey(0)
+        cv2.waitKey(0)
     else:
         print("No markers detected.")
         exit(-1)

@@ -1,11 +1,12 @@
 import cv2
 import numpy as np
 from ctu_crs import CRS97  # or CRS93
+import PybulletRobot
 import utils
 import json
 import time
 
-robot = CRS97()
+robot = PybulletRobot.PybulletRobot()
 
 
 try:
