@@ -92,7 +92,7 @@ def detect_base_position(img, display=False):
             uv = np.array([base_center[0], base_center[1], 1.0])
             xy = H @ uv
             xy /= xy[2]
-            base_center_robot = np.array([xy[0] + rotated_offset[0], xy[1] + rotated_offset[1], 0.054])
+            base_center_robot = np.array([xy[0] + rotated_offset[0], xy[1] + rotated_offset[1], 0.032])
 
         elif len(ids) == 0:
             raise ValueError("No markers detected.")

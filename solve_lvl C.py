@@ -7,7 +7,7 @@ import utils
 import json
 import time
 
-robot = PybulletRobot(maze_rotation_deg=-17.2)
+robot = PybulletRobot(aruco_image_path="aruco_images/aruco_8.png", maze_urdf="robot/mazes/maze_C.urdf")
 
 def get_waypoint_pose(waypoint, base_center_robot, center_rot, angle_offset = 0.0) -> np.ndarray:
     pos = np.array(waypoint["pos"])

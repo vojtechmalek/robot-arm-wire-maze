@@ -1,10 +1,12 @@
 import json
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from ctu_crs import CRS97
 from PybulletRobot import PybulletRobot
 
 from PybulletRobotSimulation import PybulletRobotSimulation
+import base_detection
 import utils  # or CRS93
 
 def get_waypoint_pose(waypoint, base_center_robot, center_rot, angle_offset = 0.0) -> np.ndarray:
@@ -41,17 +43,23 @@ def get_waypoint_pose(waypoint, base_center_robot, center_rot, angle_offset = 0.
 
 
 
-
-maze_base_center_robot = np.array([0.409188095097534, 0.07017433, 0.032])
-maze_center_rot = -16.288773  # degrees
-
-
 # initialize with correct maze parameters
 
-maze = "B"
+maze = "D"
+aruco_image_path = f"aruco_images/aruco_6.png"
 
-robot = PybulletRobot(tty_dev=None, maze_urdf=f"robot/mazes/{maze}.urdf", maze_position=maze_base_center_robot.tolist(), maze_rotation_deg=maze_center_rot)
-simulation_robot = PybulletRobotSimulation(maze_urdf=f"robot/mazes/{maze}.urdf", maze_position=maze_base_center_robot.tolist(), maze_rotation_deg=maze_center_rot)
+aruco_img = cv2.imread(aruco_image_path)
+maze_base_center_robot, maze_center_rot = base_detection.detect_base_position(aruco_img, False)
+maze_center_rot = np.rad2deg(maze_center_rot)
+
+robot = PybulletRobot(tty_dev=None,
+                      maze_urdf=f"robot/mazes/maze_{maze}.urdf",
+                      aruco_image_path=aruco_image_path)
+
+simulation_robot = PybulletRobotSimulation(maze_urdf=f"robot/mazes/maze_{maze}.urdf",
+                                           maze_position=maze_base_center_robot.tolist(),
+                                           maze_rotation_deg=maze_center_rot)
+
 waypoints_raw = json.load(open(f"waypoints/waypoints_{maze}.json", "r"))
 
 
@@ -68,7 +76,7 @@ step = 1
 grid_count_x = len(waypoints_raw)
 # grid_count_x = 50
 
-grid_count_y = 16
+grid_count_y = 64
 
 grid = np.zeros((grid_count_y, grid_count_x))
 

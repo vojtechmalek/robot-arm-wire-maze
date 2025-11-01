@@ -34,7 +34,7 @@ class PybulletRobotSimulation():
 
         # 4. Load maze
         object_pos = maze_position
-        object_rot = p.getQuaternionFromEuler([0, 0, np.deg2rad(maze_rotation_deg + 180)])
+        object_rot = p.getQuaternionFromEuler([0, 0, np.deg2rad(maze_rotation_deg + 90)])
         object_urdf = maze_urdf
         self._maze_urdf = p_direct.loadURDF(object_urdf, object_pos, object_rot)
 

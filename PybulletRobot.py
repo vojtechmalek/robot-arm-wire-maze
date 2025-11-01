@@ -12,13 +12,16 @@ import numpy as np
 import threading
 import inspect
 
+import base_detection
+
 
 class PybulletRobot(CRSRobot):
     def __init__(self, tty_dev: str | None = "/dev/mars", baudrate: int = 19200,
                  maze_urdf: str = "robot/mazes/C.urdf",
-                 maze_position: list[float] = [0.409188095097534, 0.07017433, 0.032],
-                 maze_rotation_deg: float = -16.288773):
+                 aruco_image_path: str = "aruco_images/aruco_6.png"):
         tty_dev = None  # force None, we don't use real robot connection
+
+        self.aruco_image_path = aruco_image_path
         
         yaml_path = Path(inspect.getfile(CRSRobot)).parent / "params_crs97.yaml"
         with open(yaml_path, "r") as f:
@@ -44,9 +47,14 @@ class PybulletRobot(CRSRobot):
         print("Base position and orientation:", p.getBasePositionAndOrientation(self._robot_urdf))
         p_gui.resetBasePositionAndOrientation(self._robot_urdf, [0, 0, 0.1 - 0.0250 + 0.0004], p.getQuaternionFromEuler([0, 0, 0])) # adjust for correct base height
 
+
+        aruco_img = cv2.imread(aruco_image_path)
+        aruco_marker_position, aruco_marker_rotation = base_detection.detect_base_position(aruco_img, False)
+
+        base_world_position = [aruco_marker_position[0], aruco_marker_position[1], 0.032]
         # 4. Load maze
-        object_pos = maze_position
-        object_rot = p.getQuaternionFromEuler([0, 0, np.deg2rad(maze_rotation_deg + 180)])
+        object_pos = base_world_position
+        object_rot = p.getQuaternionFromEuler([0, 0, aruco_marker_rotation + np.pi/2])
         object_urdf = maze_urdf
         self._maze_urdf = p_gui.loadURDF(object_urdf, object_pos, object_rot, flags=p.URDF_USE_MATERIAL_COLORS_FROM_MTL)
 
@@ -178,7 +186,7 @@ class PybulletRobot(CRSRobot):
 
     def grab_image(self) -> np.ndarray:
         # read image file
-        img_path = "aruco_images/aruco_6.png"
+        img_path = self.aruco_image_path
         img = cv2.imread(img_path)
         # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         return img

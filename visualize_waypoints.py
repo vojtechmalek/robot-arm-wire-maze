@@ -4,9 +4,9 @@ import json
 import utils
 
 
-waypoints_raw = json.load(open("waypoints/waypoints_C.json", "r"))
+waypoints_raw = json.load(open("waypoints/waypoints_D.json", "r"))
 # use only every nth waypoint for clarity
-waypoints_raw = waypoints_raw[::30]
+waypoints_raw = waypoints_raw[::20]
 
 
 # use matplotlib to visualize waypoints in 3D
