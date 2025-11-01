@@ -17,6 +17,12 @@
         <color rgba="0.0 0.5 0.5 1.0" />
       </material>
     </visual>
+    <collision>
+      <origin xyz="0 0 0.1" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.1" length="0.2" />
+      </geometry>
+    </collision>
   </link>
 
   <link name="arm1">
@@ -35,6 +41,12 @@
         <texture filename="path/to/texture/image.png" />
       </material>
     </visual>
+    <collision>
+      <origin xyz="0 0 0.065" rpy="0 0 0" />
+      <geometry>
+        <box size="0.15 0.15 0.13" />
+      </geometry>
+    </collision>
   </link>
 
   <joint name="base_to_arm1" type="revolute">
@@ -60,6 +72,12 @@
         <color rgba="0.5 0.5 0.0 1.0" />
       </material>
     </visual>
+    <collision>
+      <origin xyz="0 0 0.1525" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.08" length="0.305" />
+      </geometry>
+    </collision>
   </link>
 
   <joint name="arm1_to_arm2" type="revolute">
@@ -85,6 +103,12 @@
         <color rgba="0.0 0.5 0.0 1.0" />
       </material>
     </visual>
+    <collision>
+      <origin xyz="0 0 0.05" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.07" length="0.1" />
+      </geometry>
+    </collision>
   </link>
 
   <joint name="arm2_to_arm3" type="revolute">
@@ -110,6 +134,12 @@
         <color rgba="0.5 0.5 0.5 1.0" />
       </material>
     </visual>
+    <collision>
+      <origin xyz="0 0 0.115" rpy="0 0 0" />
+      <geometry>
+        <box size="0.1 0.1 0.23" />
+      </geometry>
+    </collision>
   </link>
 
   <joint name="arm3_to_arm4" type="revolute">
@@ -135,6 +165,12 @@
         <color rgba="0.0 0.0 0.5 1.0" />
       </material>
     </visual>
+    <collision>
+      <origin xyz="0 0 0.028" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.04" length="0.056" />
+      </geometry>
+    </collision>
   </link>
 
   <joint name="arm4_to_arm5" type="revolute">
@@ -160,6 +196,12 @@
         <color rgba="0.5 0.0 0.0 1.0" />
       </material>
     </visual>
+    <collision>
+      <origin xyz="0 0 0.01" rpy="0 0 0" />
+      <geometry>
+        <box size="0.06 0.06 0.02" />
+      </geometry>
+    </collision>
   </link>
 
   <joint name="arm5_to_arm6" type="revolute">
@@ -208,12 +250,12 @@
         <color rgba="1.0 0.84 0.0 1.0" />
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="0 0 0.005" rpy="0 0 0" />
       <geometry>
         <cylinder radius="0.06" length="0.01" />
       </geometry>
-    </collision>
+    </collision> -->
   </link>
 
   <joint name="ee_to_hoop" type="fixed">
