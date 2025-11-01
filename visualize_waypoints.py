@@ -4,7 +4,7 @@ import json
 import utils
 
 
-waypoints_raw = json.load(open("waypoints/waypoints_D.json", "r"))
+waypoints_raw = json.load(open("waypoints/waypoints_new_E.json", "r"))
 # use only every nth waypoint for clarity
 waypoints_raw = waypoints_raw[::20]
 
@@ -37,14 +37,19 @@ for wp in waypoints_raw:
     p = np.array(wp["pos"], dtype=float)
 
     R = np.eye(3)
+    # wp has "mat"
+    if "mat" in wp:
+        R = np.array(wp["mat"]).reshape((3, 3))
+
     # wp has "rpy"
-    if "rpy" in wp:
+    elif "rpy" in wp:
         rpy = wp["rpy"]
         roll, pitch, yaw = rpy
         # compute rotation matrix from rpy
         R = R @ utils.rotzyx(roll, 0, 0)
         R = R @ utils.rotzyx(0, pitch, 0)
         R = R @ utils.rotzyx(0, 0, yaw)
+
 
     # local axes in world coordinates (columns of R)
     x_axis = R[:, 0]

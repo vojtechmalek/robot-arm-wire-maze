@@ -26,10 +26,17 @@ def get_waypoint_pose(waypoint, base_center_robot, center_rot, angle_offset = 0.
     # move to waypoint position relative to maze center
     pose_matrix = pose_matrix @ utils.trans_se3_vec(pos)
 
-    # apply waypoint orientation
-    pose_matrix = pose_matrix @ utils.rotzyx_se3(rpy[0], 0, 0)
-    pose_matrix = pose_matrix @ utils.rotzyx_se3(0, rpy[1], 0)
-    pose_matrix = pose_matrix @ utils.rotzyx_se3(0, 0, rpy[2])
+    if "mat" in waypoint:
+        pose_wp = np.eye(4)
+        R_wp = np.array(waypoint["mat"]).reshape((3, 3))
+        pose_wp[:3, :3] = R_wp
+        pose_matrix = pose_matrix @ pose_wp
+
+    elif "rpy" in waypoint:
+        # apply waypoint orientation
+        pose_matrix = pose_matrix @ utils.rotzyx_se3(rpy[0], 0, 0)
+        pose_matrix = pose_matrix @ utils.rotzyx_se3(0, rpy[1], 0)
+        pose_matrix = pose_matrix @ utils.rotzyx_se3(0, 0, rpy[2])
 
     # adjust for robot end effector orientation
     pose_matrix = pose_matrix @ utils.rotzyx_se3(0, 0, np.pi/2)
@@ -46,7 +53,7 @@ def get_waypoint_pose(waypoint, base_center_robot, center_rot, angle_offset = 0.
 # initialize with correct maze parameters
 
 maze = "D"
-aruco_image_path = f"aruco_images/aruco_6.png"
+aruco_image_path = f"aruco_images/aruco_7.png"
 
 aruco_img = cv2.imread(aruco_image_path)
 maze_base_center_robot, maze_center_rot = base_detection.detect_base_position(aruco_img, False)
@@ -174,6 +181,10 @@ extent = [0, 1, 0, 360]  # x_min, x_max, y_min, y_max
 img = ax.imshow(grid, cmap="viridis", interpolation="nearest", extent=extent, origin="lower", aspect="auto")
 ax.set_xlim(0, 1)
 ax.set_ylim(0, 360)
+
+# axis labels
+ax.set_xlabel("Path Progress (normalized)")
+ax.set_ylabel("Angle Offset (degrees)")
 
 def on_click(event):
     if event.inaxes != ax:
