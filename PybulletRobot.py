@@ -6,6 +6,7 @@ from ctu_crs.crs_robot import CRSRobot
 
 import pybullet as p
 import pybullet_data
+import pybullet_utils.bullet_client as bc
 import time
 import numpy as np
 import threading
@@ -22,36 +23,37 @@ class PybulletRobot(CRSRobot):
         super().__init__(tty_dev, baudrate, **crs_params)
 
 
+        p_gui = bc.BulletClient(connection_mode=p.GUI)
         
         # 1. Start PyBullet
         # p.connect(p.GUI, options="--verbose")
-        p.connect(p.GUI)
-        p.setAdditionalSearchPath(pybullet_data.getDataPath())
+        # p_gui.connect(p.GUI)
+        p_gui.setAdditionalSearchPath(pybullet_data.getDataPath())
         # p.setAdditionalSearchPath(os.path.join(os.path.dirname(__file__)))  # add path to your robot URDFs
 
         # 2. Load plane (optional)
-        plane = p.loadURDF("plane.urdf")
+        plane = p_gui.loadURDF("plane.urdf")
 
         # 3. Load robot
-        self._robot_urdf = p.loadURDF("robot/crs97.urdf", useFixedBase=True)
+        self._robot_urdf = p_gui.loadURDF("robot/crs97.urdf", useFixedBase=True)
         # set robot rotation if needed
         # p.resetBasePositionAndOrientation(robot_urdf, [0, 0, 0], p.getQuaternionFromEuler([0, 0, np.pi]))
         print("Base position and orientation:", p.getBasePositionAndOrientation(self._robot_urdf))
-        p.resetBasePositionAndOrientation(self._robot_urdf, [0, 0, 0.1 - 0.0250 + 0.0004], p.getQuaternionFromEuler([0, 0, 0])) # adjust for correct base height
+        p_gui.resetBasePositionAndOrientation(self._robot_urdf, [0, 0, 0.1 - 0.0250 + 0.0004], p.getQuaternionFromEuler([0, 0, 0])) # adjust for correct base height
 
         # 4. Load maze
         object_pos = [0.409188095097534, 0.07017433, 0.032]
         object_rot = p.getQuaternionFromEuler([0, 0, np.deg2rad(-16.288773 + 180)])
         object_urdf = "robot/mazes/C.urdf"
-        self._maze_urdf = p.loadURDF(object_urdf, object_pos, object_rot, flags=p.URDF_USE_MATERIAL_COLORS_FROM_MTL)
+        self._maze_urdf = p_gui.loadURDF(object_urdf, object_pos, object_rot, flags=p.URDF_USE_MATERIAL_COLORS_FROM_MTL)
 
         # Enable collision detection
-        p.setGravity(0, 0, 0)
+        p_gui.setGravity(0, 0, 0)
 
         def get_first_n_revolute_joints(body, n=6):
             joints = []
-            for i in range(p.getNumJoints(body)):
-                info = p.getJointInfo(body, i)
+            for i in range(p_gui.getNumJoints(body)):
+                info = p_gui.getJointInfo(body, i)
                 joint_type = info[2]
                 # REVOLUTE joint type constant is 0 in pybullet
                 if joint_type == p.JOINT_REVOLUTE or joint_type == 0:
@@ -65,17 +67,38 @@ class PybulletRobot(CRSRobot):
         if len(self._joint_indices) < 6:
             print(f"Warning: found only {len(self._joint_indices)} revolute joints: {self._joint_indices}")
 
+        for i in range(p_gui.getNumJoints(self._robot_urdf)):
+            # disable default motor control
+            p.setJointMotorControl2(self._robot_urdf, i, p.VELOCITY_CONTROL, force=0)
+
+        # p_gui.setRealTimeSimulation(0)
+        # Disable collisions between robot and maze
+        p_gui.setPhysicsEngineParameter(numSolverIterations=0, contactSlop=0)
+
+
         # set joint positions: [0, 0, -45, 0, -45, 0]
         joint_positions = [0, 0, np.deg2rad(-45), 0, np.deg2rad(-45), 0]
         self._set_q(np.array(joint_positions))
 
-
         def simulation_loop(stop_event):
             while True:
-                if p.isConnected() == 0 or stop_event.is_set():
+                if p_gui.isConnected() == 0 or stop_event.is_set():
                     break
 
-                p.stepSimulation()
+                p_gui.stepSimulation()
+
+                # contacts = p_gui.getContactPoints(bodyA=self._robot_urdf, bodyB=self._maze_urdf)
+                # if contacts:
+                #     print("=== COLLISION DETECTED ===")
+                #     for c in contacts:
+                #         linkA_name = p_gui.getJointInfo(self._robot_urdf, c[3])[12].decode('utf-8') if c[3] != -1 else "base"
+                #         linkB_name = p_gui.getJointInfo(self._maze_urdf, c[4])[12].decode('utf-8') if c[4] != -1 else "base"
+                #         print("LinkA:", linkA_name,
+                #             "LinkB:", linkB_name)
+                #         print("LinkIndexA:", c[3],
+                #             "LinkIndexB:", c[4],
+                #             "Contact distance:", c[8],
+                #             "Normal force:", c[9])
 
                 time.sleep(1/240)
 
@@ -89,7 +112,8 @@ class PybulletRobot(CRSRobot):
         q_target = q_target * np.array([1, -1, -1, 1, -1, 1])  # adjust for joint direction differences
 
         for jidx, pos in zip(self._joint_indices, q_target):
-            p.setJointMotorControl2(bodyIndex=self._robot_urdf, jointIndex=jidx, controlMode=p.POSITION_CONTROL, targetPosition=pos, force=500)
+            # p.setJointMotorControl2(bodyIndex=self._robot_urdf, jointIndex=jidx, controlMode=p.POSITION_CONTROL, targetPosition=pos, force=500)
+            p.resetJointState(self._robot_urdf, jidx, pos)
 
 
     def move_robot_to_q(self, q_target):

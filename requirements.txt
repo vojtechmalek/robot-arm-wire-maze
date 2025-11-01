@@ -2,3 +2,4 @@ ctu_crs
 pybullet
 opencv-python
 numpy
+matplotlib
