@@ -7,7 +7,7 @@ import utils
 import json
 import time
 
-robot = PybulletRobot()
+robot = PybulletRobot(maze_rotation_deg=-16.288773)
 
 def get_waypoint_pose(waypoint, base_center_robot, center_rot, angle_offset = 0.0) -> np.ndarray:
     pos = np.array(waypoint["pos"])
@@ -18,7 +18,7 @@ def get_waypoint_pose(waypoint, base_center_robot, center_rot, angle_offset = 0.
     # pose_matrix = pose_matrix @ utils.rotxyz_se3(rpy[0], rpy[1], rpy[2])
     pose_matrix = pose_matrix @ utils.trans_se3_vec(base_center_robot)
 
-    pose_matrix = pose_matrix @ utils.rotzyx_se3(0, 0, (-center_rot + 90) * np.pi / 180)
+    pose_matrix = pose_matrix @ utils.rotzyx_se3(0, 0, (center_rot + 90) * np.pi / 180)
 
     pose_matrix = pose_matrix @ utils.trans_se3_vec(pos + np.array([-0.005, -0.005, 0.0]))
     # pose_matrix = pose_matrix @ utils.trans_se3_vec(pos)
@@ -41,7 +41,7 @@ try:
     img = robot.grab_image()
 
     xy1, center_rot = base_detection.detect_base_position(img, True)
-    center_rot = -np.rad2deg(center_rot)
+    center_rot = np.rad2deg(center_rot)
 
     print(f"Marker position in robot frame: x={xy1[0]:.3f}, y={xy1[1]:.3f}, rotation={center_rot:.2f} deg")
     

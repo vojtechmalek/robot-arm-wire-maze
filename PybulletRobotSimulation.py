@@ -14,7 +14,7 @@ import inspect
 class PybulletRobotSimulation():
     def __init__(self, maze_urdf: str = "robot/mazes/C.urdf",
                  maze_position: list[float] = [0.409188095097534, 0.07017433, 0.032],
-                 maze_rotation_deg: float = -16.288773 + 180):
+                 maze_rotation_deg: float = -16.288773):
         p_direct = bc.BulletClient(connection_mode=p.DIRECT)
 
         self._bullet_client = p_direct  # store for later use in other methods
@@ -34,7 +34,7 @@ class PybulletRobotSimulation():
 
         # 4. Load maze
         object_pos = maze_position
-        object_rot = p.getQuaternionFromEuler([0, 0, np.deg2rad(maze_rotation_deg)])
+        object_rot = p.getQuaternionFromEuler([0, 0, np.deg2rad(maze_rotation_deg + 180)])
         object_urdf = maze_urdf
         self._maze_urdf = p_direct.loadURDF(object_urdf, object_pos, object_rot)
 
@@ -114,3 +114,10 @@ class PybulletRobotSimulation():
     def is_colliding_with_maze(self) -> bool:
         contacts = self._bullet_client.getContactPoints(bodyA=self._robot_urdf, bodyB=self._maze_urdf, physicsClientId=self._bullet_client._client)
         return len(contacts) > 0
+    
+    def get_robot_to_maze_distance(self) -> float:
+        points = self._bullet_client.getClosestPoints(bodyA=self._robot_urdf, bodyB=self._maze_urdf, distance=100.0, physicsClientId=self._bullet_client._client)
+        if len(points) == 0:
+            return float('inf')
+        min_distance = min([p[8] for p in points])  # contactDistance is at index 8
+        return min_distance

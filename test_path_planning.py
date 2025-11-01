@@ -19,7 +19,7 @@ def get_waypoint_pose(waypoint, base_center_robot, center_rot, angle_offset = 0.
     pose_matrix = pose_matrix @ utils.trans_se3_vec(base_center_robot)
 
     # rotate to align with maze orientation
-    pose_matrix = pose_matrix @ utils.rotzyx_se3(0, 0, (-center_rot + 90) * np.pi / 180)
+    pose_matrix = pose_matrix @ utils.rotzyx_se3(0, 0, (center_rot + 90) * np.pi / 180)
 
     # move to waypoint position relative to maze center
     pose_matrix = pose_matrix @ utils.trans_se3_vec(pos)
@@ -39,17 +39,28 @@ def get_waypoint_pose(waypoint, base_center_robot, center_rot, angle_offset = 0.
     return pose_matrix
 
 
-robot = PybulletRobot(tty_dev=None)
+
+
 
 maze_base_center_robot = np.array([0.409188095097534, 0.07017433, 0.032])
-maze_center_rot = 16.288773  # degrees
+maze_center_rot = -16.288773  # degrees
+
+
+# initialize with correct maze parameters
+
+maze = "B"
+
+robot = PybulletRobot(tty_dev=None, maze_urdf=f"robot/mazes/{maze}.urdf", maze_position=maze_base_center_robot.tolist(), maze_rotation_deg=maze_center_rot)
+simulation_robot = PybulletRobotSimulation(maze_urdf=f"robot/mazes/{maze}.urdf", maze_position=maze_base_center_robot.tolist(), maze_rotation_deg=maze_center_rot)
+waypoints_raw = json.load(open(f"waypoints/waypoints_{maze}.json", "r"))
+
+
+
 
 print(f"Marker position in robot frame: x={maze_base_center_robot[0]:.3f}, y={maze_base_center_robot[1]:.3f}, rotation={maze_center_rot:.2f} deg")
 
 base_center_robot_se3 = utils.trans_se3(maze_base_center_robot[0], maze_base_center_robot[1], 0.032)
 
-
-waypoints_raw = json.load(open("waypoints/waypoints_C.json", "r"))
 
 
 
@@ -57,11 +68,10 @@ step = 1
 grid_count_x = len(waypoints_raw)
 # grid_count_x = 50
 
-grid_count_y = 32
+grid_count_y = 16
 
 grid = np.zeros((grid_count_y, grid_count_x))
 
-simulation_robot = PybulletRobotSimulation()
 
 
 for ix in range(0, grid_count_x, step):
@@ -99,6 +109,7 @@ for ix in range(0, grid_count_x, step):
         # test for collisions in simulation
         collision_found = False
         valid_solutions = 0
+        max_distance = 0.0
         for ik_sol in ik_filtered_sols:
             simulation_robot.move_to_q(ik_sol)
             # print("robot moved to: ", simulation_robot.get_q())
@@ -108,9 +119,12 @@ for ix in range(0, grid_count_x, step):
             else:
                 valid_solutions += 1
 
-        grid[iy, ix] = valid_solutions
+            distance = simulation_robot.get_robot_to_maze_distance()
+            max_distance = max(max_distance, distance)
+
+        grid[iy, ix] = max_distance
         if (valid_solutions == 0):
-            grid[iy, ix] = -2
+            grid[iy, ix] = -0.05
 
 
 
