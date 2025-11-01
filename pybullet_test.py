@@ -20,9 +20,9 @@ robot = p.loadURDF("robot/crs97.urdf", useFixedBase=True)
 # set robot rotation if needed
 p.resetBasePositionAndOrientation(robot, [0, 0, 0], p.getQuaternionFromEuler([0, 0, np.pi]))
 
-# 4. Load an object (e.g., a cube)
+# 4. Load an object (e.g., maze C)
 object_pos = [0.6, 0, 0.1]
-object_urdf = "cube_small.urdf"
+object_urdf = "robot/mazes/C.urdf"
 obj = p.loadURDF(object_urdf, object_pos)
 
 # Enable collision detection

@@ -39,6 +39,12 @@ class PybulletRobot(CRSRobot):
         print("Base position and orientation:", p.getBasePositionAndOrientation(self._robot_urdf))
         p.resetBasePositionAndOrientation(self._robot_urdf, [0, 0, 0.1 - 0.0250 + 0.0004], p.getQuaternionFromEuler([0, 0, 0])) # adjust for correct base height
 
+        # 4. Load maze
+        object_pos = [0.409188095097534, 0.07017433, 0.032]
+        object_rot = p.getQuaternionFromEuler([0, 0, np.deg2rad(-16.288773 + 180)])
+        object_urdf = "robot/mazes/C.urdf"
+        self._maze_urdf = p.loadURDF(object_urdf, object_pos, object_rot, flags=p.URDF_USE_MATERIAL_COLORS_FROM_MTL)
+
         # Enable collision detection
         p.setGravity(0, 0, 0)
 
