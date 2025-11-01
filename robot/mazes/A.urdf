@@ -9,7 +9,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0" />
       <geometry>
-        <mesh filename="package://robot/mazes/ROB_C.obj" scale="1 1 1" />
+        <mesh filename="package://robot/mazes/ROB_A.stl" scale="0.001 0.001 0.001" />
       </geometry>
       <material name="white">
         <color rgba="1 1 1 1" />
