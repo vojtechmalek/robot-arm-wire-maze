@@ -3,16 +3,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (needed for 3D plots)
 
-WAYPOINT_FILE = "waypoints_M.json"  # path 
+WAYPOINT_FILE = "waypoints_E.json"  # path
 
 # ------------ CONFIG ------------
-ARROW_STRIDE = 50       # draw orientation triads every Nth waypoint
-DRAW_STRIDE  = 10     # draw a ring every Nth waypoint (can be same as ARROW_STRIDE)
-AXIS_LEN     = 0.015    # length of axis arrows (m)
-TOOL_AXIS    = 'X'      # which tool axis is aligned with path tangent: 'Z' or 'X'
+ARROW_STRIDE = 50        # draw orientation triads every Nth waypoint
+DRAW_STRIDE  = 10        # draw a ring every Nth waypoint (can be same as ARROW_STRIDE)
+AXIS_LEN     = 0.015     # length of axis arrows (m)
+TOOL_AXIS    = 'X'       # which tool axis is aligned with path tangent: 'Z' or 'X'
 
-RING_RADIUS  = 0.03     # ring radius in meters (distance from center to wire)
-RING_RES     = 64       # how smooth the drawn circle is
+RING_RADIUS  = 0.03      # ring radius in meters (distance from center to wire)
+RING_RES     = 64        # how smooth the drawn circle is
+STICK_LENGTH = 0.1       # length of the "stick" normal to the ring plane (m)
 
 # ------------ HELPERS ------------
 
@@ -25,7 +26,10 @@ def rpy_zyx_to_rotm(roll, pitch, yaw):
     Convert roll/pitch/yaw (radians) to rotation matrix using ZYX convention:
     R = Rz(yaw) * Ry(pitch) * Rx(roll)
 
-    This must match how rpy was produced (rotm_to_rpy_zyx in generator).
+    IMPORTANT:
+    - This returns the same convention as rotm_to_rpy_zyx in the generator.
+    - After fixing the generator, rpy now encodes WORLD->TOOL, not TOOL->WORLD.
+      So this function now reconstructs R_world_to_tool.
     """
     cr, sr = np.cos(roll),  np.sin(roll)
     cp, sp = np.cos(pitch), np.sin(pitch)
@@ -41,48 +45,49 @@ def rpy_zyx_to_rotm(roll, pitch, yaw):
                    [0, cr,-sr],
                    [0, sr, cr]])
 
-    return Rz @ Ry @ Rx  # 3x3
+    return Rz @ Ry @ Rx  # 3x3 = R_world_to_tool
 
-def make_ring_points(center, R, tool_axis, radius, resolution):
+def make_ring_points(center, R_tool, tool_axis, radius, resolution):
     """
     Create 3D points of a ring (a circle) centered at `center`
-    and oriented by rotation matrix R.
+    and oriented by rotation matrix R_tool.
+
+    R_tool is TOOL->WORLD (columns are tool X/Y/Z in world coords).
 
     If tool_axis == 'Z':
-        - ring's plane is tool X-Y plane
-        - circle is parameterized in (tool X, tool Y)
-        - tool Z is ring normal
+        - ring is drawn in the tool X-Y plane
+        - tool Z is the normal of that plane
     If tool_axis == 'X':
-        - ring's plane is tool Y-Z plane
-        - tool X is ring normal
+        - ring is drawn in the tool Y-Z plane
+        - tool X is the normal of that plane
     """
     thetas = np.linspace(0, 2*np.pi, resolution)
 
     if tool_axis.upper() == 'Z':
-        # local circle in XY plane of tool frame
+        # local circle in XY plane of TOOL frame
         local_pts = np.stack([
-            radius * np.cos(thetas),  # along tool X
-            radius * np.sin(thetas),  # along tool Y
+            radius * np.cos(thetas),  # tool X
+            radius * np.sin(thetas),  # tool Y
             np.zeros_like(thetas)     # no tool Z
-        ], axis=1)  # shape (res, 3)
-
-        # Map tool frame -> world: p_world = center + R * p_local
-        world_pts = center + local_pts @ R.T  # (res,3)
+        ], axis=1)  # (res,3)
 
     elif tool_axis.upper() == 'X':
-        # local circle in YZ plane of tool frame
+        # local circle in YZ plane of TOOL frame
         local_pts = np.stack([
             np.zeros_like(thetas),    # no tool X
-            radius * np.cos(thetas),  # along tool Y
-            radius * np.sin(thetas),  # along tool Z
+            radius * np.cos(thetas),  # tool Y
+            radius * np.sin(thetas),  # tool Z
         ], axis=1)
-
-        world_pts = center + local_pts @ R.T
 
     else:
         raise ValueError("Unsupported TOOL_AXIS, use 'Z' or 'X'.")
 
+    # Map TOOL coords -> WORLD coords
+    # p_world = center + R_tool @ p_local
+    world_pts = center + (R_tool @ local_pts.T).T  # (res,3)
+
     return world_pts  # (res,3)
+
 
 # ------------ MAIN ------------
 
@@ -108,18 +113,22 @@ def main():
     for k in range(0, len(waypoints), ARROW_STRIDE):
         wp = waypoints[k]
 
-        pos = np.array(wp["pos"])       # [x,y,z] (m)
-        roll, pitch, yaw = wp["rpy"]    # radians
+        pos = np.array(wp["pos"])     # [x,y,z] (m)
+        roll, pitch, yaw = wp["rpy"]  # radians
 
-        # rotation matrix of tool frame in world frame
-        R = rpy_zyx_to_rotm(roll, pitch, yaw)
+        # 1. reconstruct rotation FROM world TO tool
+        R_world_to_tool = rpy_zyx_to_rotm(roll, pitch, yaw)
+
+        # 2. transpose to get TOOL->WORLD
+        #    columns are tool x,y,z expressed in world coordinates
+        R_tool = R_world_to_tool.T
 
         # Tool frame basis vectors in world coords
-        x_axis = R[:,0]
-        y_axis = R[:,1]
-        z_axis = R[:,2]
+        x_axis = R_tool[:, 0]
+        y_axis = R_tool[:, 1]
+        z_axis = R_tool[:, 2]
 
-        # Pick which axis is the ring normal (the direction of travel)
+        # Pick which axis is the path / main axis (tool_axis)
         if TOOL_AXIS.upper() == 'Z':
             main_axis = z_axis
         elif TOOL_AXIS.upper() == 'X':
@@ -127,7 +136,7 @@ def main():
         else:
             main_axis = z_axis  # fallback
 
-        # 1. Draw a main axis arrow (shows direction the ring is "heading")
+        # 1. Draw a main axis arrow (shows nominal tool "forward")
         ax.quiver(
             pos[0], pos[1], pos[2],
             main_axis[0]*AXIS_LEN,
@@ -163,17 +172,21 @@ def main():
             linewidth=1,
         )
 
-    # Draw the ring itself (circle in the tool plane) every DRAW_STRIDE points
+    # Draw the ring (circle in tool plane) every DRAW_STRIDE waypoints
     for k in range(0, len(waypoints), DRAW_STRIDE):
         wp = waypoints[k]
 
         pos = np.array(wp["pos"])
         roll, pitch, yaw = wp["rpy"]
-        R = rpy_zyx_to_rotm(roll, pitch, yaw)
 
+        # Rebuild tool frame in world coords, same as above
+        R_world_to_tool = rpy_zyx_to_rotm(roll, pitch, yaw)
+        R_tool = R_world_to_tool.T
+
+        # Ring points in world frame
         ring_pts_world = make_ring_points(
             center=pos,
-            R=R,
+            R_tool=R_tool,
             tool_axis=TOOL_AXIS,
             radius=RING_RADIUS,
             resolution=RING_RES,
@@ -184,6 +197,27 @@ def main():
             ring_pts_world[:,1],
             ring_pts_world[:,2],
             color='orange',
+            linewidth=1.0,
+        )
+
+        # Draw the "stick" that shows tool approach direction
+        if TOOL_AXIS.upper() == 'Z':
+            # tool Z is "forward", stick goes opposite Z
+            stick_dir = -R_tool[:, 2]
+        elif TOOL_AXIS.upper() == 'X':
+            # tool X is "forward", stick goes opposite X
+            stick_dir = -R_tool[:, 0]
+        else:
+            stick_dir = -R_tool[:, 2]
+
+        stick_start = pos
+        stick_end   = pos + stick_dir * STICK_LENGTH
+
+        ax.plot(
+            [stick_start[0], stick_end[0]],
+            [stick_start[1], stick_end[1]],
+            [stick_start[2], stick_end[2]],
+            color='gray',
             linewidth=1.0,
         )
 

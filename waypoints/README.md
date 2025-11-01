@@ -14,7 +14,8 @@ The ezdxf lib is for reading CAD/DXF geometry.
 
 ## Usage
 
-I recommand using Fusion360 for the dxf generation. You will need to create a Mesh body, then convert it to Solid and use Sketch -> Project -> Include 3D Geometry tool to extract the edges of the maze you want to follow. Then export this sketch as .dxf.
+I recommand using Fusion360 for the dxf generation. You will need to create a Mesh body, then convert it to Solid and use Sketch -> Project -> Include 3D Geometry tool to extract the edges of the maze you want to follow. Be ware that the Sketch has to be on the bottom X plane, it dictates the orientation for the .dxf. Then export this sketch as .dxf.
+
 ![Result](images/Fusion_viz.png)
 
 Move .dxf to this dir and change DXF_FILE to yours path. 
@@ -30,7 +31,9 @@ for generating .json with the waypoints and
 python plot_XYZPRZ.py
 ```
 for vizualization of the waypoints with the hoop vizualization included.
+
 ![Result](images/ring_path.png)
+
 If you want just the waypoints without ring orentation for per partes debugging, use
 ```bash
 python plot_waypoints.py

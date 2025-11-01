@@ -7,13 +7,13 @@ import json
 ################################
 
 DXF_FILE = "E_path.dxf"        # your DXF
-OUTPUT_FILE = "waypoints_M.json"      # output JSON, working file
+OUTPUT_FILE = "waypoints_E.json"      # output JSON, working file
 RESAMPLE_STEP = 0.001                 # 1 mm in meters
 UNIT_SCALE = 0.001                    # DXF is probably mm -> convert to m
 TOOL_AXIS = 'X'                       # which tool axis should align with path tangent
 WORLD_UP = np.array([0, 0, 1.0])      # reference "up" to stabilize roll
 OFFSET_X = -0.005   # meters
-OFFSET_Y = 0.005  # meters
+OFFSET_Y = -0.005  # meters
 OFFSET_Z = 0.000   # meters
 
 ################################
@@ -233,7 +233,10 @@ def main():
             WORLD_UP,
             tool_axis=TOOL_AXIS
         )
-        rpy = rotm_to_rpy_zyx(R_tool)  # radians
+
+        R_world_to_tool = R_tool.T
+
+        rpy = rotm_to_rpy_zyx(R_world_to_tool)  # radians
 
         # apply XY(Z) offset
         p_curr_offset = np.array([
