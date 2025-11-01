@@ -1,0 +1,409 @@
+<?xml version="1.0"?>
+<robot name="maze_E">
+  <link name="mazeLink">
+    <material name="maze_white"><color rgba="1 1 1 1"/></material>
+    <visual>
+      <origin xyz="0.022679 0.081477 0.165000" rpy="0.000000 1.570796 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.047046" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="0.022679 0.081477 0.165000" rpy="0.000000 1.570796 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.047046" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.022638 0.057471 0.165000" rpy="0.000000 1.570796 -1.656698" />
+      <geometry>
+        <box size="0.010000 0.010000 0.000970" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="0.022638 0.057471 0.165000" rpy="0.000000 1.570796 -1.656698" />
+      <geometry>
+        <box size="0.010000 0.010000 0.000970" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.002177 0.032215 0.165000" rpy="0.000000 1.570796 -2.356195" />
+      <geometry>
+        <box size="0.010000 0.010000 0.070068" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.002177 0.032215 0.165000" rpy="0.000000 1.570796 -2.356195" />
+      <geometry>
+        <box size="0.010000 0.010000 0.070068" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027135 0.007019 0.165000" rpy="0.000000 1.570796 -1.983749" />
+      <geometry>
+        <box size="0.010000 0.010000 0.000925" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027135 0.007019 0.165000" rpy="0.000000 1.570796 -1.983749" />
+      <geometry>
+        <box size="0.010000 0.010000 0.000925" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 0.004094 0.164944" rpy="0.000000 1.593058 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.005004" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 0.004094 0.164944" rpy="0.000000 1.593058 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.005004" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 0.000097 0.164757" rpy="0.000000 1.658340 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 0.000097 0.164757" rpy="0.000000 1.658340 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.002885 0.164409" rpy="0.000000 1.716238 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.002885 0.164409" rpy="0.000000 1.716238 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.005842 0.163893" rpy="0.000000 1.770885 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.005842 0.163893" rpy="0.000000 1.770885 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.010669 0.162596" rpy="0.000000 1.859828 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.007002" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.010669 0.162596" rpy="0.000000 1.859828 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.007002" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.015419 0.161043" rpy="0.000000 1.949588 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.015419 0.161043" rpy="0.000000 1.949588 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.018175 0.159853" rpy="0.000000 2.007128 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.018175 0.159853" rpy="0.000000 2.007128 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.020860 0.158511" rpy="0.000000 2.062142 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.020860 0.158511" rpy="0.000000 2.062142 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.025111 0.155883" rpy="0.000000 2.151185 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.007002" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.025111 0.155883" rpy="0.000000 2.151185 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.007002" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.029215 0.153030" rpy="0.000000 2.240845 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.029215 0.153030" rpy="0.000000 2.240845 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.031514 0.151100" rpy="0.000000 2.298016 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.031514 0.151100" rpy="0.000000 2.298016 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.033700 0.149043" rpy="0.000000 2.353398 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.033700 0.149043" rpy="0.000000 2.353398 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.037017 0.145305" rpy="0.000000 2.442544 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.007002" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.037017 0.145305" rpy="0.000000 2.442544 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.007002" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.040130 0.141394" rpy="0.000000 2.532100 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.040130 0.141394" rpy="0.000000 2.532100 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.041777 0.138885" rpy="0.000000 2.588906 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.041777 0.138885" rpy="0.000000 2.588906 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.043281 0.136287" rpy="0.000000 2.644651 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.043281 0.136287" rpy="0.000000 2.644651 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.045385 0.131753" rpy="0.000000 2.733904 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.007002" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.045385 0.131753" rpy="0.000000 2.733904 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.007002" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.047243 0.127113" rpy="0.000000 2.823353 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.047243 0.127113" rpy="0.000000 2.823353 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.048101 0.124237" rpy="0.000000 2.879793 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.048101 0.124237" rpy="0.000000 2.879793 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.048797 0.121317" rpy="0.000000 2.935906 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.048797 0.121317" rpy="0.000000 2.935906 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.003003" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027321 -0.049510 0.116370" rpy="0.000000 3.025264 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.007002" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027321 -0.049510 0.116370" rpy="0.000000 3.025264 -1.570796" />
+      <geometry>
+        <box size="0.010000 0.010000 0.007002" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027320 -0.049944 0.110397" rpy="0.000000 3.130337 -1.566590" />
+      <geometry>
+        <box size="0.010000 0.010000 0.004992" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027320 -0.049944 0.110397" rpy="0.000000 3.130337 -1.566590" />
+      <geometry>
+        <box size="0.010000 0.010000 0.004992" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.027111 -0.025200 0.083129" rpy="0.000000 2.356176 1.562352" />
+      <geometry>
+        <box size="0.010000 0.010000 0.070068" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.027111 -0.025200 0.083129" rpy="0.000000 2.356176 1.562352" />
+      <geometry>
+        <box size="0.010000 0.010000 0.070068" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.026801 -0.000214 0.057971" rpy="0.000000 2.591525 1.129464" />
+      <geometry>
+        <box size="0.010000 0.010000 0.000904" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.026801 -0.000214 0.057971" rpy="0.000000 2.591525 1.129464" />
+      <geometry>
+        <box size="0.010000 0.010000 0.000904" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.018442 0.000000 0.043282" rpy="0.000000 2.617994 0.000000" />
+      <geometry>
+        <box size="0.010000 0.010000 0.033032" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.018442 0.000000 0.043282" rpy="0.000000 2.617994 0.000000" />
+      <geometry>
+        <box size="0.010000 0.010000 0.033032" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.010092 0.000000 0.028503" rpy="0.000000 2.950646 0.000000" />
+      <geometry>
+        <box size="0.010000 0.010000 0.000969" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.010092 0.000000 0.028503" rpy="0.000000 2.950646 0.000000" />
+      <geometry>
+        <box size="0.010000 0.010000 0.000969" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.010000 0.000000 0.014014" rpy="0.000000 3.141593 0.000000" />
+      <geometry>
+        <box size="0.010000 0.010000 0.028027" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="-0.010000 0.000000 0.014014" rpy="0.000000 3.141593 0.000000" />
+      <geometry>
+        <box size="0.010000 0.010000 0.028027" />
+      </geometry>
+    </collision>
+  </link>
+</robot>

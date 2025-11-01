@@ -10,7 +10,7 @@ import json
 import math
 
 # ======= USER CONFIGURATION =======
-WAYPOINT_NAME = "A"   # <-- Change this (A, B, C, etc.)
+WAYPOINT_NAME = "E"   # <-- Change this (A, B, C, etc.)
 WAYPOINT_DIR  = "waypoints"
 THICKNESS_X   = 0.01
 THICKNESS_Y   = 0.01
@@ -87,7 +87,6 @@ def generate_urdf(points, robot_name, link_name):
     lines.append(f'<robot name="{robot_name}">')
     lines.append(f'  <link name="{link_name}">')
     lines.append('    <material name="maze_white"><color rgba="1 1 1 1"/></material>')
-    lines.append('    <material name="maze_arrow_red"><color rgba="1 0 0 1"/></material>')
 
     # Maze boxes
     for i in range(len(points)-1):
@@ -115,16 +114,6 @@ def generate_urdf(points, robot_name, link_name):
         lines.append(f'        <box size="{THICKNESS_X:.6f} {THICKNESS_Y:.6f} {L:.6f}" />')
         lines.append('      </geometry>')
         lines.append('    </collision>')
-
-    # Visual arrow marker at origin pointing +X (no collision)
-    lines.append('    <visual name="direction_arrow">')
-    # a simple cylinder “arrow” centered near the origin, lying along X axis
-    lines.append('      <origin xyz="0.05 0 0" rpy="0 0 1.5708" />  <!-- rotate so cylinder axis is +X -->')
-    lines.append('      <geometry>')
-    lines.append('        <cylinder radius="0.002" length="0.1" />')
-    lines.append('      </geometry>')
-    lines.append('      <material name="maze_arrow_red" />')
-    lines.append('    </visual>')
 
     lines.append('  </link>')
     lines.append('</robot>')

@@ -7,7 +7,7 @@
       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
     </inertial> -->
     <visual>
-      <origin rpy="0 0 -1.5708" xyz="0 0 0" />
+      <origin rpy="0 0 0" xyz="0 0 0" />
       <geometry>
         <mesh filename="package://robot/mazes/ROB_B.stl" scale="0.001 0.001 0.001" />
       </geometry>
