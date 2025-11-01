@@ -115,6 +115,15 @@ class PybulletRobot(CRSRobot):
             # p.setJointMotorControl2(bodyIndex=self._robot_urdf, jointIndex=jidx, controlMode=p.POSITION_CONTROL, targetPosition=pos, force=500)
             p.resetJointState(self._robot_urdf, jidx, pos)
 
+    def _draw_frame(self, se3_matrix, length=0.1, width=0.005):
+        origin = se3_matrix[:3, 3]
+        x_axis = se3_matrix[:3, 0]
+        y_axis = se3_matrix[:3, 1]
+        z_axis = se3_matrix[:3, 2]
+
+        p.addUserDebugLine(origin, origin + length * x_axis, [1, 0, 0], width * 100, 2.0)
+        p.addUserDebugLine(origin, origin + length * y_axis, [0, 1, 0], width * 100, 2.0)
+        p.addUserDebugLine(origin, origin + length * z_axis, [0, 0, 1], width * 100, 2.0)
 
     def move_robot_to_q(self, q_target):
         prev_q = self.get_robot_q()
