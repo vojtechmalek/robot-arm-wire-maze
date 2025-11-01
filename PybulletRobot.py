@@ -136,7 +136,7 @@ class PybulletRobot(CRSRobot):
 
     def grab_image(self) -> np.ndarray:
         # read image file
-        img_path = "aruco_images/aruco_7.png"
+        img_path = "aruco_images/aruco_6.png"
         img = cv2.imread(img_path)
         # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         return img

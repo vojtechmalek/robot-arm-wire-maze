@@ -188,17 +188,17 @@ def debug_fk(q):
 
 
 debug_fk(robot.q_home)
-# debug_fk([0, 0, 0, 0, 0.4, 0])
-# debug_fk([0, 0, 0, 0, 0, 0])
-# debug_fk([0, 0, 0.5, 0, 0, 0])
-# debug_fk([0, 0.5, 0.0, 0, 0, 0])
-# debug_fk([0, 0.5, 0.5, 0, 0, 0])
-# debug_fk([0.5, 0.5, 0.5, 0, 0, 0])
-# debug_fk([0.5, 0.5, 0.5, 0, 0.5, 0])
-# debug_fk([0, 0, 0.5, 0.5, 0, 0])
-# debug_fk([0.5, 0.5, 0.5, 1, 1, 0])
+debug_fk([0, 0, 0, 0, 0.4, 0])
+debug_fk([0, 0, 0, 0, 0, 0])
+debug_fk([0, 0, 0.5, 0, 0, 0])
+debug_fk([0, 0.5, 0.0, 0, 0, 0])
+debug_fk([0, 0.5, 0.5, 0, 0, 0])
+debug_fk([0.5, 0.5, 0.5, 0, 0, 0])
+debug_fk([0.5, 0.5, 0.5, 0, 0.5, 0])
+debug_fk([0, 0, 0.5, 0.5, 0, 0])
+debug_fk([0.5, 0.5, 0.5, 1, 1, 0])
 
-# debug_fk(robot.q_home)
+debug_fk(robot.q_home)
 
 # draw_frame([0, 0, 1.041], length=0.3, duration=0)  # draw frame at approx end effector home height
 
