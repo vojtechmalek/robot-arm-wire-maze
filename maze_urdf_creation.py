@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 """
-Generate a URDF collision model of a maze segment from waypoint JSON files.
+Generate a URDF maze where each straight segment becomes both a visual
+and a collision box with identical pose and size.
 
-Usage:
-  Just edit the `WAYPOINT_NAME` variable at the top (e.g. "A", "B", "C"...)
-  and run:  python generate_maze_urdf.py
-
-This reads all JSON waypoints in the folder:
-    waypoints/waypoint_<WAYPOINT_NAME>.json
-and generates:
-    maze_<WAYPOINT_NAME>.urdf
+Edit WAYPOINT_NAME and run:
+  python generate_maze_urdf.py
 """
 
 import os
@@ -21,7 +16,7 @@ WAYPOINT_NAME = "B"   # <-- Change this (A, B, C, etc.)
 WAYPOINT_DIR  = "waypoints"
 THICKNESS_X   = 0.01
 THICKNESS_Y   = 0.01
-ANGLE_TOL_DEG = 2.0    # tolerance to merge straight lines
+ANGLE_TOL_DEG = 2.0
 DUPE_DIST     = 1e-9
 # ==================================
 
@@ -81,20 +76,34 @@ def simplify_collinear(points, angle_tol_deg):
     return [p for p, k in zip(points, keep) if k]
 
 def generate_urdf(points, robot_name, link_name):
-    """Build URDF XML string for straight segments."""
+    """Build URDF: for each segment, add identical <visual> and <collision> boxes."""
     lines = []
     lines.append('<?xml version="1.0"?>')
     lines.append(f'<robot name="{robot_name}">')
     lines.append(f'  <link name="{link_name}">')
 
+    # Simple white material for visuals
+    lines.append('    <material name="maze_white"><color rgba="1 1 1 1"/></material>')
+
     for i in range(len(points)-1):
         p0, p1 = points[i], points[i+1]
         L = dist(p0, p1)
-        if L == 0: continue
+        if L == 0: 
+            continue
         u = normalize((p1[0]-p0[0], p1[1]-p0[1], p1[2]-p0[2]))
         r, p, y = pitch_yaw_from_dir(u)
         m = midpoint(p0, p1)
 
+        # VISUAL (same pose/size as collision)
+        lines.append('    <visual>')
+        lines.append(f'      <origin xyz="{m[0]:.6f} {m[1]:.6f} {m[2]:.6f}" rpy="{r:.6f} {p:.6f} {y:.6f}" />')
+        lines.append('      <geometry>')
+        lines.append(f'        <box size="{THICKNESS_X:.6f} {THICKNESS_Y:.6f} {L:.6f}" />')
+        lines.append('      </geometry>')
+        lines.append('      <material name="maze_white" />')
+        lines.append('    </visual>')
+
+        # COLLISION (identical)
         lines.append('    <collision>')
         lines.append(f'      <origin xyz="{m[0]:.6f} {m[1]:.6f} {m[2]:.6f}" rpy="{r:.6f} {p:.6f} {y:.6f}" />')
         lines.append('      <geometry>')
@@ -107,9 +116,14 @@ def generate_urdf(points, robot_name, link_name):
     return "\n".join(lines)
 
 def main():
-    waypoint_file = os.path.join(WAYPOINT_DIR, f"waypoints_{WAYPOINT_NAME}.json")
+    waypoint_file = os.path.join(WAYPOINT_DIR, f"waypoint_{WAYPOINT_NAME}.json")
     if not os.path.exists(waypoint_file):
-        raise FileNotFoundError(f"Waypoint file not found: {waypoint_file}")
+        # also try plural form if user files are named waypoints_X.json
+        alt = os.path.join(WAYPOINT_DIR, f"waypoints_{WAYPOINT_NAME}.json")
+        if os.path.exists(alt):
+            waypoint_file = alt
+        else:
+            raise FileNotFoundError(f"Waypoint file not found: {waypoint_file} (also tried {alt})")
 
     pts = load_waypoints(waypoint_file)
     pts = remove_duplicates(pts, DUPE_DIST)
@@ -121,7 +135,7 @@ def main():
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(urdf_text)
 
-    print(f"✅ Generated {out_path} with {len(pts)-1} collision segments.")
+    print(f"✅ Generated {out_path} with {len(pts)-1} segments (visual == collision).")
 
 if __name__ == "__main__":
     main()
