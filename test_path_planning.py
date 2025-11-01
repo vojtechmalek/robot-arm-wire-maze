@@ -4,6 +4,7 @@ import numpy as np
 from ctu_crs import CRS97
 from PybulletRobot import PybulletRobot
 
+from PybulletRobotSimulation import PybulletRobotSimulation
 import utils  # or CRS93
 
 def get_waypoint_pose(waypoint, base_center_robot, center_rot, angle_offset = 0.0) -> np.ndarray:
@@ -60,6 +61,8 @@ grid_count_y = 32
 
 grid = np.zeros((grid_count_y, grid_count_x))
 
+simulation_robot = PybulletRobotSimulation()
+
 
 for ix in range(0, grid_count_x, step):
     wp = waypoints_raw[ix]
@@ -76,24 +79,38 @@ for ix in range(0, grid_count_x, step):
         movement_offset_matrix[:3, 3] = np.array([utils.HOOP_CENTER_DISTANCE, 0.0, 0.0])
         pose_matrix = pose_matrix @ movement_offset_matrix
 
+        if (pose_matrix[2, 3] < 0.04):
+            continue
+
         ik_sols = robot.ik(pose_matrix)
         if len(ik_sols) == 0:
             # print(f"  - No IK solution found for angle offset {angle_offset:.2f} rad.")
             continue
 
-        filtered_sols = lambda sols: [q for q in sols if robot.in_limits(q)]
+        ik_filtered_sols = [q for q in ik_sols if robot.in_limits(q)]
 
-        found_solution = True
-        grid[iy, ix] = len(filtered_sols(ik_sols))
-        # print(f"  - IK solution found for angle offset {angle_offset:.2f} rad.")
-        # break
+        if len(ik_filtered_sols) == 0:
+            # print(f"  - No valid IK solutions found for angle offset {angle_offset:.2f} rad.")
+            continue
 
-    if not found_solution:
-        grid[:, ix] = 0
+        # grid[iy, ix] = len(ik_filtered_sols)
 
 
+        # test for collisions in simulation
+        collision_found = False
+        valid_solutions = 0
+        for ik_sol in ik_filtered_sols:
+            simulation_robot.move_to_q(ik_sol)
+            # print("robot moved to: ", simulation_robot.get_q())
+            simulation_robot.step_simulation()
+            if simulation_robot.is_colliding_with_maze():
+                collision_found = True
+            else:
+                valid_solutions += 1
 
-
+        grid[iy, ix] = valid_solutions
+        if (valid_solutions == 0):
+            grid[iy, ix] = -2
 
 
 

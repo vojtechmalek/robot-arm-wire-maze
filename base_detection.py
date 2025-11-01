@@ -109,4 +109,4 @@ def detect_base_position(img, display=False):
             cv2.imshow("Detected Aruco Markers", img_markers)
             cv2.waitKey(0)
     
-    return base_center_robot, -base_rotation
+    return base_center_robot, base_rotation
