@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from ctu_crs import CRS97
 from PybulletRobot import PybulletRobot
+from tqdm import tqdm
 
 from PybulletRobotSimulation import PybulletRobotSimulation
 import base_detection
@@ -89,9 +90,9 @@ grid = np.zeros((grid_count_y, grid_count_x))
 
 
 
-for ix in range(0, grid_count_x, step):
+for ix in tqdm(range(0, grid_count_x, step), desc="Processing waypoints"):
     wp = waypoints_raw[ix]
-    print(f"Processing waypoint {ix}:")
+    # print(f"Processing waypoint {ix}:")
 
     found_solution = False
 
