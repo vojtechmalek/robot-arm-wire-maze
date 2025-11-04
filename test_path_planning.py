@@ -50,11 +50,18 @@ def get_waypoint_pose(waypoint, base_center_robot, center_rot, angle_offset = 0.
 
 
 
+actual_robot = CRS97()
+actual_robot.initialize(home=False)
+
+robot_image = actual_robot.grab_image()
+cv2.imwrite("robot_image.png", robot_image)
+
 
 # initialize with correct maze parameters
 
 maze = "D"
-aruco_image_path = f"aruco_images/aruco_7.png"
+# aruco_image_path = "aruco_images/aruco_5.png"
+aruco_image_path = "robot_image.png"
 
 aruco_img = cv2.imread(aruco_image_path)
 maze_base_center_robot, maze_center_rot = base_detection.detect_base_position(aruco_img, False)
@@ -73,9 +80,9 @@ waypoints_raw = json.load(open(f"waypoints/waypoints_{maze}.json", "r"))
 
 
 
-print(f"Marker position in robot frame: x={maze_base_center_robot[0]:.3f}, y={maze_base_center_robot[1]:.3f}, rotation={maze_center_rot:.2f} deg")
+print(f"Marker position in robot frame: x={maze_base_center_robot[0]:.3f}, y={maze_base_center_robot[1]:.3f}, z={maze_base_center_robot[2]:.3f}, rotation={maze_center_rot:.2f} deg")
 
-base_center_robot_se3 = utils.trans_se3(maze_base_center_robot[0], maze_base_center_robot[1], 0.032)
+base_center_robot_se3 = utils.trans_se3(maze_base_center_robot[0], maze_base_center_robot[1], maze_base_center_robot[2])
 
 
 
@@ -84,7 +91,7 @@ step = 1
 grid_count_x = len(waypoints_raw)
 # grid_count_x = 50
 
-grid_count_y = 64
+grid_count_y = 32
 
 grid = np.zeros((grid_count_y, grid_count_x))
 
@@ -101,12 +108,12 @@ for ix in tqdm(range(0, grid_count_x, step), desc="Processing waypoints"):
 
         pose_matrix = get_waypoint_pose(wp, maze_base_center_robot, maze_center_rot, angle_offset)
 
-        movement_offset_matrix = np.eye(4)
-        movement_offset_matrix[:3, 3] = np.array([utils.HOOP_CENTER_DISTANCE, 0.0, 0.0])
-        pose_matrix = pose_matrix @ movement_offset_matrix
-
         if (pose_matrix[2, 3] < 0.04):
             continue
+
+        movement_offset_matrix = np.eye(4)
+        movement_offset_matrix[:3, 3] = np.array([utils.HOOP_CENTER_DISTANCE, 0.0, utils.HOOP_VERTICAL_OFFSET])
+        pose_matrix = pose_matrix @ movement_offset_matrix
 
         ik_sols = robot.ik(pose_matrix)
         if len(ik_sols) == 0:
@@ -146,9 +153,6 @@ for ix in tqdm(range(0, grid_count_x, step), desc="Processing waypoints"):
 
 
 
-
-
-
 #####################
 
 def move_robot_to_waypoint(ix, iy):
@@ -156,7 +160,7 @@ def move_robot_to_waypoint(ix, iy):
     angle_offset = (iy / (grid_count_y - 1)) * 2 * np.pi
     pose_matrix = get_waypoint_pose(wp, maze_base_center_robot, maze_center_rot, angle_offset)
     movement_offset_matrix = np.eye(4)
-    movement_offset_matrix[:3, 3] = np.array([utils.HOOP_CENTER_DISTANCE, 0.0, 0.0])
+    movement_offset_matrix[:3, 3] = np.array([utils.HOOP_CENTER_DISTANCE, 0.0, utils.HOOP_VERTICAL_OFFSET])
     pose_matrix = pose_matrix @ movement_offset_matrix
     ik_sols = robot.ik(pose_matrix)
     
@@ -167,6 +171,18 @@ def move_robot_to_waypoint(ix, iy):
         print("No valid IK solutions found.")
         return
     robot._set_q(filtered_sols[0])
+    
+    ik_sols2 = actual_robot.ik(pose_matrix)
+    if len(ik_sols2) == 0:
+        # raise RuntimeError("No IK solutions found for the target position.")
+        return False
+    
+    print(f"Found {len(ik_sols)} IK solutions.")
+
+    # sort solutions by distance to current joint state
+    ik_sols2.sort(key=lambda q: np.linalg.norm(q - actual_robot.get_q()))
+
+    actual_robot.move_to_q(ik_sols2[0])
 
 
 def draw_robot_frame_at_waypoint(ix, iy):

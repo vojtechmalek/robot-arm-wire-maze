@@ -61,6 +61,7 @@ def inv_T(T):
 
 #rpy_offset = np.array([-0.06, 0.05, 0.0])
 HOOP_CENTER_DISTANCE = 0.135    # 135 mm
+HOOP_VERTICAL_OFFSET = -0.0025  # 2.5 mm
 
 ########################## Move function ##########################
 

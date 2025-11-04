@@ -6,6 +6,7 @@ id1_distance_from_center = (distance_from_marker_to_center, distance_from_marker
 id2_distance_from_center = (-distance_from_marker_to_center, -distance_from_marker_to_center)
 
 H = np.load("homography.npy")
+BASE_HEIGHT = 0.036  # meters
 
 def detect_base_position(img, display=False):
     aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
@@ -49,7 +50,7 @@ def detect_base_position(img, display=False):
             uv = np.array([base_center[0], base_center[1], 1.0])
             xy = H @ uv
             xy /= xy[2]
-            base_center_robot = np.array([xy[0], xy[1], 0.054])
+            base_center_robot = np.array([xy[0], xy[1], BASE_HEIGHT])
             
             # Calculate angles for each marker (for display)
             marker_angles = {}
@@ -92,7 +93,7 @@ def detect_base_position(img, display=False):
             uv = np.array([base_center[0], base_center[1], 1.0])
             xy = H @ uv
             xy /= xy[2]
-            base_center_robot = np.array([xy[0] + rotated_offset[0], xy[1] + rotated_offset[1], 0.032])
+            base_center_robot = np.array([xy[0] + rotated_offset[0], xy[1] + rotated_offset[1], BASE_HEIGHT])
 
         elif len(ids) == 0:
             raise ValueError("No markers detected.")
