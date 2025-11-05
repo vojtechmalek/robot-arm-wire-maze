@@ -7,7 +7,7 @@ import utils
 # CONFIG
 ################################
 
-DXF_FILE = "dxf:paths/E_path.dxf"        # your DXF
+DXF_FILE = "dxf_paths/A_path.dxf"        # your DXF
 OUTPUT_FILE = "waypoint_paths/waypoints_M.json"      # output JSON, working file
 RESAMPLE_STEP = 0.001                 # 1 mm in meters
 UNIT_SCALE = 0.001                    # DXF usualy mm -> convert to m
