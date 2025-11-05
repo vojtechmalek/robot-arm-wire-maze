@@ -95,6 +95,12 @@ def rodrigues(axis, theta):
     K = skew(axis)
     return np.eye(3) + np.sin(theta)*K + (1.0 - np.cos(theta))*(K @ K)
 
+def mats_equal(a, b, atol=1e-9, rtol=1e-9):
+    # Compare two flattened rotation matrices (lists) robustly
+    return np.allclose(np.asarray(a, dtype=float),
+                       np.asarray(b, dtype=float),
+                       atol=atol, rtol=rtol)
+
 ########################## Constants ##########################
 
 #rpy_offset = np.array([-0.06, 0.05, 0.0])
