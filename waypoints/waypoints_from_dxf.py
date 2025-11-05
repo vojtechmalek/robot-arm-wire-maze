@@ -7,7 +7,7 @@ import json
 ################################
 
 DXF_FILE = "E_path.dxf"        # your DXF
-OUTPUT_FILE = "waypoints_E.json"      # output JSON, working file
+OUTPUT_FILE = "waypoints_M.json"      # output JSON, working file
 RESAMPLE_STEP = 0.001                 # 1 mm in meters
 UNIT_SCALE = 0.001                    # DXF is probably mm -> convert to m
 TOOL_AXIS = 'X'                       # which tool axis should align with path tangent
@@ -20,11 +20,40 @@ OFFSET_Z = 0.000   # meters
 # GEOMETRY HANDLING
 ################################
 
+
+# ---------- vector utils ----------
 def normalize(v):
     n = np.linalg.norm(v)
     if n < 1e-12:
         return v * 0.0
     return v / n
+
+def skew(v):
+    x, y, z = v
+    return np.array([[0, -z,  y],
+                     [z,  0, -x],
+                     [-y, x,  0]], dtype=float)
+
+def rodrigues(axis, theta):
+    axis = normalize(axis)
+    K = skew(axis)
+    return np.eye(3) + np.sin(theta)*K + (1.0 - np.cos(theta))*(K @ K)
+
+# ---------- initial frame from world_up ----------
+def initial_frame_from_up(tangent, world_up, tool_axis='X'):
+    X = normalize(tangent)  # we align tool +X with the path
+    proj = world_up - np.dot(world_up, X) * X
+    if np.linalg.norm(proj) < 1e-6:
+        # fallback if world_up ~ X
+        alt = np.array([1.0, 0.0, 0.0])
+        if abs(np.dot(alt, X)) > 0.9:
+            alt = np.array([0.0, 1.0, 0.0])
+        proj = alt - np.dot(alt, X) * X
+    Y = normalize(proj)
+    Z = normalize(np.cross(X, Y))
+    Y = normalize(np.cross(Z, X))
+    return np.column_stack((X, Y, Z))  # columns = tool axes in WORLD
+
 
 
 def extract_ordered_path_points(dxf_doc):
@@ -141,6 +170,41 @@ def interpolate_polyline(points, step_m):
 
     return np.array(resampled)
 
+# ---------- minimal realignment (parallel transport) ----------
+def transport_frame(prev_R, new_tangent):
+    """
+    Rotate the whole previous frame by the *smallest* rotation so that
+    its +X matches new_tangent. Columns of prev_R are tool [X Y Z] in world.
+    """
+    X_old = prev_R[:, 0]
+    X_new = normalize(new_tangent)
+
+    v = np.cross(X_old, X_new)
+    s = np.linalg.norm(v)
+    c = np.dot(X_old, X_new)
+
+    if s < 1e-10:
+        if c > 0.0:
+            R_align = np.eye(3)  # unchanged
+        else:
+            # 180° flip about any axis ⟂ X_old; pick a stable one
+            tmp = np.array([1.0, 0.0, 0.0]) if abs(X_old[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+            axis = normalize(np.cross(X_old, tmp))
+            R_align = rodrigues(axis, np.pi)
+    else:
+        axis = v / s
+        theta = np.arctan2(s, c)
+        R_align = rodrigues(axis, theta)
+
+    R_new = R_align @ prev_R
+
+    # re-orthonormalize defensively
+    X = normalize(R_new[:, 0])
+    Y = normalize(R_new[:, 1] - np.dot(R_new[:, 1], X) * X)
+    Z = normalize(np.cross(X, Y))
+    Y = normalize(np.cross(Z, X))
+    return np.column_stack((X, Y, Z))
+
 
 def compute_tool_frame_from_tangent(tangent, world_up, tool_axis='Z'):
     """
@@ -212,33 +276,45 @@ def main():
     path_pts = np.flip(path_pts, axis=0)
 
     # 5. build waypoints with orientation
+        # 5. build waypoints with smooth, continuous orientation
     waypoints = []
-    for i in range(len(path_pts)):
-        # pick two sample indices for tangent estimation:
-        i_a = max(i - 2, 0)
-        i_b = min(i + 2, len(path_pts)-1)
 
+    # choose tool axis convention: here we fix +X along tangent
+    # (If you want to keep your TOOL_AXIS flag, adapt initial_frame_from_up.)
+    R_prev = None
+
+    TWIST_GAIN = 0.25  # 0 = pure parallel transport, 1 = hard chase world up
+
+    for i in range(len(path_pts)):
+        # tangent estimate like before
+        i_a = max(i - 2, 0)
+        i_b = min(i + 2, len(path_pts) - 1)
         p_a = path_pts[i_a]
         p_b = path_pts[i_b]
-
         tangent = p_b - p_a
         if np.linalg.norm(tangent) < 1e-12 and i < len(path_pts)-1:
-            # fallback: use immediate next if degenerate
             tangent = path_pts[i+1] - path_pts[i]
 
         p_curr = path_pts[i]
 
-        R_tool = compute_tool_frame_from_tangent(
-            tangent,
-            WORLD_UP,
-            tool_axis=TOOL_AXIS
-        )
+        if R_prev is None:
+            R_tool_world = initial_frame_from_up(tangent, WORLD_UP, tool_axis='X')
+        else:
+            R_tool_world = transport_frame(R_prev, tangent)
 
-        R_world_to_tool = R_tool.T
+        # store for next step
+        R_prev = R_tool_world
 
-        rpy = rotm_to_rpy_zyx(R_world_to_tool)  # radians
+        # If your downstream expects world->tool, it's just transpose.
+        R_world_to_tool = R_tool_world.T
 
-        # apply XY(Z) offset
+        # RPY only for legacy usage (ZYX extrinsic = roll(X), pitch(Y), yaw(Z))
+        rpy = rotm_to_rpy_zyx(R_world_to_tool)
+
+        # Provide continuous rotation matrix and quaternion
+        mat_flat = R_tool_world.reshape(-1).tolist()
+
+        # apply offset (same as before)
         p_curr_offset = np.array([
             p_curr[0] + OFFSET_X,
             p_curr[1] + OFFSET_Y,
@@ -247,11 +323,12 @@ def main():
 
         waypoints.append({
             "pos": p_curr_offset.tolist(),
-            "rpy": rpy,
+            "rpy": [float(rpy[0]), float(rpy[1]), float(rpy[2])],
+            "mat": mat_flat,             # NEW: stable for visualization / state space         # NEW: stable for planning
             "idx": int(i)
         })
 
-    # last point, reuse last orientation
+    # last point, reuse last orientation like you already do
     p_last = path_pts[-1]
     p_last_offset = np.array([
         p_last[0] + OFFSET_X,
@@ -261,8 +338,10 @@ def main():
     waypoints.append({
         "pos": p_last_offset.tolist(),
         "rpy": waypoints[-1]["rpy"],
+        "mat": waypoints[-1]["mat"],
         "idx": len(path_pts)-1
     })
+
 
 
     # 6. save
