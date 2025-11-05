@@ -1,20 +1,24 @@
 import cv2
 import numpy as np
+from pathlib import Path
 
-distance_from_marker_to_center = 0.0375  # meters
-id1_distance_from_center = (distance_from_marker_to_center, distance_from_marker_to_center)
-id2_distance_from_center = (-distance_from_marker_to_center, -distance_from_marker_to_center)
-
-H = np.load("homography.npy")
 BASE_HEIGHT = 0.036  # meters
+DISTANCE_FROM_MARKER_TO_CENTER = 0.0375  # meters
+id1_distance_from_center = (DISTANCE_FROM_MARKER_TO_CENTER, DISTANCE_FROM_MARKER_TO_CENTER)
+id2_distance_from_center = (-DISTANCE_FROM_MARKER_TO_CENTER, -DISTANCE_FROM_MARKER_TO_CENTER)
 
 def detect_base_position(img, display=False):
+    # Load homography matrix
+    homography_path = Path(__file__).parent.parent / "homography" / "homography.npy"
+    H = np.load(homography_path)
+    
+    print(f"[BASE_DETECTION] Homography matrix loaded from {homography_path}")
     aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
     detector = cv2.aruco.ArucoDetector(aruco_dict)
 
-    corners, ids, rejectedImgPoints = detector.detectMarkers(img)
+    corners, ids, _ = detector.detectMarkers(img)
 
-    print(f"Detected {len(ids)} markers")
+    print(f"[BASE_DETECTION] Detected {len(ids)} markers")
     
     if ids is not None:
         if len(ids) == 2:
@@ -50,6 +54,7 @@ def detect_base_position(img, display=False):
             uv = np.array([base_center[0], base_center[1], 1.0])
             xy = H @ uv
             xy /= xy[2]
+
             base_center_robot = np.array([xy[0], xy[1], BASE_HEIGHT])
             
             # Calculate angles for each marker (for display)
@@ -78,7 +83,6 @@ def detect_base_position(img, display=False):
             
             base_center = np.mean(corners[0][0], axis=0)
             vector = corners[0][0][1] - corners[0][0][0]
-            # atan2 returns angle in radians
             base_rotation = -np.arctan2(vector[1], vector[0])
                  
             # Normalize angle to [-π, π] range
@@ -110,4 +114,7 @@ def detect_base_position(img, display=False):
             cv2.imshow("Detected Aruco Markers", img_markers)
             cv2.waitKey(0)
     
-    return base_center_robot, base_rotation
+    print(f"[BASE_DETECTION] Base center in robot frame: {base_center_robot} with rotation {base_rotation:.3f} rad")
+    # Return Pose instance with position (xyz) and rotation (yaw around Z axis)
+    from .pose import Pose
+    return Pose(p=base_center_robot, rpy=np.array([0, 0, base_rotation]))
