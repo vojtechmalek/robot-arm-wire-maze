@@ -176,7 +176,7 @@ class PybulletRobot(CRSRobot):
     def calculate_state_space(self,
                               num_angle_samples: int = 8,
                               step: int = 1,
-                              use_separate_simulation: bool = True):
+                              ):
         """
         Calculate the state space matrix
         """ 
@@ -184,12 +184,11 @@ class PybulletRobot(CRSRobot):
             waypoints_path=f"waypoints/waypoints_{self._maze}.json",
             num_angle_samples=num_angle_samples,
             step=step,
-            use_separate_simulation=use_separate_simulation
+            use_separate_simulation=self._use_gui
         )
     
     def visualize_state_space(self) -> None:
-        """
-        Display an interactive visualization of the state space.
+        """se_separate_simulation: bool = True of the state space.
         Clicking or dragging on the plot will move the robot to that configuration.
         """
         self.state_space.visualize()
