@@ -1,0 +1,176 @@
+<!-- 16 segments -->
+    <!-- 1 -->
+    <!-- <visual>
+      <origin xyz="0.0575 0 0.003" rpy="0 0 0" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0.0575 0 0.003" rpy="0 0 0" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 2 -->
+    <visual>
+      <origin xyz="0.053 0.022 0.003" rpy="0 0 0.3926990817" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0.053 0.022 0.003" rpy="0 0 0.3926990817" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 3 -->
+    <visual>
+      <origin xyz="0.04061 0.04061 0.003" rpy="0 0 0.7853981634" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0.04061 0.04061 0.003" rpy="0 0 0.7853981634" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 4 -->
+    <visual>
+      <origin xyz="0.03299 0.04553 0.003" rpy="0 0 1.1780972451" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0.03299 0.04553 0.003" rpy="0 0 1.1780972451" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 5 -->
+    <visual>
+      <origin xyz="0 0.0575 0.003" rpy="0 0 1.5707963268" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0.0575 0.003" rpy="0 0 1.5707963268" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 6 -->
+    <visual>
+      <origin xyz="-0.03299 0.04553 0.003" rpy="0 0 1.9634954086" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.03299 0.04553 0.003" rpy="0 0 1.9634954086" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 7 -->
+    <visual>
+      <origin xyz="-0.04061 0.04061 0.003" rpy="0 0 2.3561944902" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.04061 0.04061 0.003" rpy="0 0 2.3561944902" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 8 -->
+    <visual>
+      <origin xyz="-0.053 0.022 0.003" rpy="0 0 2.7488935719" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.053 0.022 0.003" rpy="0 0 2.7488935719" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 9 -->
+    <visual>
+      <origin xyz="-0.0575 0 0.003" rpy="0 0 3.1415926536" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.0575 0 0.003" rpy="0 0 3.1415926536" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 10 -->
+    <visual>
+      <origin xyz="-0.053 -0.022 0.003" rpy="0 0 3.5342917343" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.053 -0.022 0.003" rpy="0 0 3.5342917343" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 11 -->
+    <visual>
+      <origin xyz="-0.04061 -0.04061 0.003" rpy="0 0 3.9269907160" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.04061 -0.04061 0.003" rpy="0 0 3.9269907160" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 12 -->
+    <visual>
+      <origin xyz="-0.03299 -0.04553 0.003" rpy="0 0 4.3196897978" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.03299 -0.04553 0.003" rpy="0 0 4.3196897978" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 13 -->
+    <visual>
+      <origin xyz="0 -0.0575 0.003" rpy="0 0 4.7123889804" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0 -0.0575 0.003" rpy="0 0 4.7123889804" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 14 -->
+    <visual>
+      <origin xyz="0.03299 -0.04553 0.003" rpy="0 0 5.1050880621" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0.03299 -0.04553 0.003" rpy="0 0 5.1050880621" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 15 -->
+    <visual>
+      <origin xyz="0.04061 -0.04061 0.003" rpy="0 0 5.4977871438" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0.04061 -0.04061 0.003" rpy="0 0 5.4977871438" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision>
+
+    <!-- 16 -->
+    <visual>
+      <origin xyz="0.053 -0.022 0.003" rpy="0 0 5.8904862255" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+      <material name="hoop_mat"/>
+    </visual>
+    <collision>
+      <origin xyz="0.053 -0.022 0.003" rpy="0 0 5.8904862255" />
+      <geometry><box size="0.012 0.024 0.006" /></geometry>
+    </collision> -->
