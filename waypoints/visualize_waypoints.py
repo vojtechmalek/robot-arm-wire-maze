@@ -5,10 +5,10 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 
-waypoints_raw = json.load(open("waypoint_paths/waypoints_M.json", "r"))
+waypoints_raw = json.load(open("opt_waypoint_paths/waypoints_M.json", "r"))
 
 # use only every nth waypoint for clarity
-waypoints_raw = waypoints_raw[::5]
+waypoints_raw = waypoints_raw[::1]
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
