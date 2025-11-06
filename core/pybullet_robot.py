@@ -205,7 +205,7 @@ class PybulletRobot(CRSRobot):
         Calculate the state space matrix
         """ 
         self.state_space.calculate(
-            waypoints_path=f"waypoints/waypoints_{self._maze}.json",
+            waypoints_path=f"waypoints/opt_waypoint_paths/waypoints_{self._maze}.json",
             num_angle_samples=num_angle_samples,
             step=step,
             use_separate_simulation=self._use_gui
@@ -222,7 +222,8 @@ class PybulletRobot(CRSRobot):
     ####################################################################################################################
 
     def get_q_path(self):
-        return None
+        """Get a joint-space path through the maze from start to goal."""        
+        return self.state_space.find_path()
         
     ####################################################################################################################
     # CLEANUP
