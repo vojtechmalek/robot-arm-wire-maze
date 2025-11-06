@@ -61,7 +61,7 @@ class StateSpace:
         grid_count_y = num_angle_samples
         
         # Initialize IK solutions storage: list of lists, one per grid cell
-        ik_solutions = [[None] * grid_count_x for _ in range(grid_count_y)]
+        ik_solutions = [[None] * grid_count_y for _ in range(grid_count_x)]
         
         # Create separate simulation for collision testing if requested
         test_robot = self._robot
@@ -113,20 +113,20 @@ class StateSpace:
                     
                     # Sort viable solutions by distance from maze (furthest first)
                     # This makes path finding easier by preferring safer configurations
-                    if len(viable_solutions) > 0:
-                        solution_distances = []
-                        for ik_sol in viable_solutions:
-                            test_robot._set_q(ik_sol)
-                            test_robot.step_simulation()
-                            distance = test_robot.get_robot_to_maze_distance()
-                            solution_distances.append((distance, ik_sol))
+                    # if len(viable_solutions) > 0:
+                    #     solution_distances = []
+                    #     for ik_sol in viable_solutions:
+                    #         test_robot._set_q(ik_sol)
+                    #         test_robot.step_simulation()
+                    #         distance = test_robot.get_robot_to_maze_distance()
+                    #         solution_distances.append((distance, ik_sol))
                         
-                        # Sort by distance (furthest first = highest distance first)
-                        solution_distances.sort(key=lambda x: x[0], reverse=True)
-                        viable_solutions = [sol for _, sol in solution_distances]
+                    #     # Sort by distance (furthest first = highest distance first)
+                    #     solution_distances.sort(key=lambda x: x[0], reverse=True)
+                    #     viable_solutions = [sol for _, sol in solution_distances]
                     
                     # Store viable IK solutions (empty list if none)
-                    ik_solutions[iy][ix] = viable_solutions
+                    ik_solutions[ix][iy] = viable_solutions
         
         finally:
             # Clean up separate simulation if we created one
@@ -139,7 +139,89 @@ class StateSpace:
         self._step = step
         # Clear any previous path when recalculating state space
         self._path_states = None
-    
+
+    def find_path(self) -> Optional[List[np.ndarray]]:
+        """
+        Find a joint-space path through the maze from start to goal using A* search.
+        Returns a list of joint configurations (q) if a path is found, otherwise None.
+        """
+        if self._ik_solutions is None:
+            raise ValueError("State space not calculated. Call calculate() first.")
+        
+        # ik_solutions is a 3D array [waypoint_idx][angle_idx][ik_solution_idx]
+        ik_solutions = self._ik_solutions
+        grid_count_y = self._num_angle_samples
+        grid_count_x = len(self._waypoints)
+
+        q_path = []
+        path_states = []
+        # previous_q = None
+        # for i in range(grid_count_x):
+        #     q_path.append(ik_solutions[i][0][0] if ik_solutions[i][0] else None)
+        #     path_states.append((i, 0, 0))
+
+        # BFS
+
+        state_queue = []
+        visited_states = set()
+
+        state_queue.append( (0, 0, 0, 0, -1, -1, -1) )  # waypoint_idx, angle_idx, ik_solution_idx, cost_so_far, prev_waypoint_idx, prev_angle_idx, prev_ik_solution_idx
+        
+        while state_queue:
+            waypoint_idx, angle_idx, ik_solution_idx, cost_so_far, prev_waypoint_idx, prev_angle_idx, prev_ik_solution_idx = state_queue.pop(0)
+
+            if (waypoint_idx, angle_idx, ik_solution_idx) in visited_states:
+                continue
+            visited_states.add( (waypoint_idx, angle_idx, ik_solution_idx) )
+
+            viable_sols = ik_solutions[waypoint_idx][angle_idx]
+            if viable_sols is None or len(viable_sols) == 0:
+                continue
+
+            this_q = viable_sols[ik_solution_idx]
+            q_path.append(this_q)
+            path_states.append((waypoint_idx, angle_idx, ik_solution_idx, cost_so_far, prev_waypoint_idx, prev_angle_idx, prev_ik_solution_idx))
+
+            if waypoint_idx == grid_count_x - 1:
+                break
+
+            # Enqueue next states
+            next_waypoint_idx = waypoint_idx + 1
+            for next_angle_idx in range(grid_count_y):
+                next_viable_sols = ik_solutions[next_waypoint_idx][next_angle_idx]
+                if next_viable_sols is None or len(next_viable_sols) == 0:
+                    continue
+                for next_ik_solution_idx in range(len(next_viable_sols)):
+                    # get q difference to previous q
+                    next_q = next_viable_sols[next_ik_solution_idx]
+                    q_diff = next_q - this_q
+                    # joint limits must be respected
+                    if np.any(np.abs(q_diff) > np.deg2rad(45)):
+                        continue
+
+                    state_queue.append( (next_waypoint_idx, next_angle_idx, next_ik_solution_idx, cost_so_far + 1,
+                                         waypoint_idx, angle_idx, ik_solution_idx) )
+
+        # get last path state
+        last_state = path_states[-1]
+
+        # reconstruct path
+        reconstructed_path_states = []
+        while last_state[0] != 0 or last_state[1] != 0:
+            waypoint_idx, angle_idx, ik_solution_idx, cost_so_far, prev_waypoint_idx, prev_angle_idx, prev_ik_solution_idx = last_state
+            reconstructed_path_states.append((waypoint_idx, angle_idx, ik_solution_idx, cost_so_far))
+            last_state = next((s for s in path_states if s[0] == prev_waypoint_idx and s[1] == prev_angle_idx and s[2] == prev_ik_solution_idx), None)
+
+        self._path_states = reconstructed_path_states[::-1]  # reverse to get from start to goal
+        
+        # cosntruct q_path
+        q_path = []
+        for waypoint_idx, angle_idx, ik_solution_idx, _ in self._path_states:
+            viable_sols = ik_solutions[waypoint_idx][angle_idx]
+            q_path.append(viable_sols[ik_solution_idx])
+
+        return q_path
+
     def move_to_point(self, waypoint_idx: int, angle_idx: int) -> bool:
         """
         Move robot to a specific point in the state space.
@@ -148,7 +230,7 @@ class StateSpace:
             raise ValueError("State space not calculated. Call calculate() first.")
         
         # Check if we have a stored IK solution for this point
-        stored_solutions = self._ik_solutions[angle_idx][waypoint_idx]
+        stored_solutions = self._ik_solutions[waypoint_idx][angle_idx]
         if stored_solutions is not None and len(stored_solutions) > 0:
             # Use the first stored IK solution (furthest from maze after sorting)
             self._robot._set_q(stored_solutions[0])
@@ -167,15 +249,15 @@ class StateSpace:
             raise ValueError("State space not calculated. Call calculate() first.")
         
         ik_solutions = self._ik_solutions
-        grid_count_y = self._num_angle_samples
         grid_count_x = len(self._waypoints)
+        grid_count_y = self._num_angle_samples
         
         # Compute distances from saved IK solutions
         # Use the first solution (index 0) which is the furthest from the maze after sorting
         grid = np.zeros((grid_count_y, grid_count_x))
-        for iy in range(grid_count_y):
-            for ix in range(grid_count_x):
-                viable_sols = ik_solutions[iy][ix]
+        for iy in range(grid_count_y): 
+            for ix in range(grid_count_x) : 
+                viable_sols = ik_solutions[ix][iy]
                 if viable_sols is None or len(viable_sols) == 0:
                     grid[iy, ix] = -0.05
                 else:
@@ -183,7 +265,7 @@ class StateSpace:
                     self._robot._set_q(viable_sols[0])
                     self._robot.step_simulation()
                     distance = self._robot.get_robot_to_maze_distance()
-                    grid[iy, ix] = distance
+                    grid[iy, ix] = viable_sols[0][5]
         
         # Create visualization
         fig, ax = plt.subplots()
@@ -198,16 +280,24 @@ class StateSpace:
         if self._path_states is not None and len(self._path_states) > 0:
             path_x = []
             path_y = []
-            for waypoint_idx, angle_idx in self._path_states:
+            point_colors = []
+            max_cost = max(cs for _, _, _, cs in self._path_states)
+            for i, (waypoint_idx, angle_idx, ik_solution_idx, cost_so_far) in enumerate(self._path_states):
                 # Convert grid indices to plot coordinates
                 x_coord = (waypoint_idx / grid_count_x) * (extent[1] - extent[0]) + extent[0]
                 angle_offset_deg = (angle_idx / (grid_count_y - 1)) * 360
                 path_x.append(x_coord)
                 path_y.append(angle_offset_deg)
-            
+
+                point_cost = cost_so_far
+                # Normalize cost for color mapping
+                norm_cost = point_cost / max_cost if max_cost > 0 else 0
+                # Map cost to color (e.g., using a colormap)
+                point_colors.append(plt.cm.viridis(norm_cost))
+
             # Plot path as colored points
-            ax.scatter(path_x, path_y, c='red', s=50, marker='o', edgecolors='white', linewidths=1, zorder=10, label='Path')
-            ax.plot(path_x, path_y, c='red', linewidth=2, alpha=0.5, zorder=9)
+            ax.scatter(path_x, path_y, c=point_colors, s=50, marker='o', edgecolors='white', linewidths=1, zorder=10, label='Path')
+            # ax.plot(path_x, path_y, c='red', linewidth=2, alpha=0.5, zorder=9)
             ax.legend()
         
         # Add colorbar
@@ -227,7 +317,7 @@ class StateSpace:
             iy = np.clip(iy, 0, grid_count_y - 1)
             
             # Get IK solutions for this point
-            viable_sols = ik_solutions[iy][ix]
+            viable_sols = ik_solutions[ix][iy]
             if viable_sols is None or len(viable_sols) == 0:
                 print(f"Clicked: waypoint={ix}, No valid configuration")
             else:
@@ -253,7 +343,7 @@ class StateSpace:
             iy = np.clip(iy, 0, grid_count_y - 1)
             
             # Get IK solutions for this point
-            viable_sols = ik_solutions[iy][ix]
+            viable_sols = ik_solutions[ix][iy]
             if viable_sols is None or len(viable_sols) == 0:
                 print(f"Moved to: waypoint={ix}, - No valid configuration (inaccessible pose)")
             else:
