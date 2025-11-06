@@ -82,7 +82,7 @@ class StateSpace:
                     )
                     
                     # Apply movement offset (hoop center distance)
-                    movement_offset = Pose(p=np.array([utils.HOOP_CENTER_DISTANCE, 0.0, 0.0]))
+                    movement_offset = Pose(p=np.array([utils.HOOP_CENTER_DISTANCE, 0.0, -utils.HOOP_OFFSET_Z]))
                     pose = pose @ movement_offset
                     
                     # Skip if Z position is too low

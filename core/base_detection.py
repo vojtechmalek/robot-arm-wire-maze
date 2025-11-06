@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from pathlib import Path
 
-BASE_HEIGHT = 0.036  # meters
+BASE_HEIGHT = 0.054  # meters
 DISTANCE_FROM_MARKER_TO_CENTER = 0.0375  # meters
 id1_distance_from_center = (DISTANCE_FROM_MARKER_TO_CENTER, DISTANCE_FROM_MARKER_TO_CENTER)
 id2_distance_from_center = (-DISTANCE_FROM_MARKER_TO_CENTER, -DISTANCE_FROM_MARKER_TO_CENTER)
