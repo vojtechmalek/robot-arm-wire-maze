@@ -4,16 +4,15 @@ from core import PybulletRobot, base_detection
 from time import sleep
     
 # Configuration
-maze = "E"
-local_mode = False
+maze = "A"
+local_mode = True
 use_gui = True
 
 NUM_ANGLE_SAMPLES = 32
 STEP = 1
-NUM_ANGLE_OPTIONS = 1  # Number of start and goal angles to try (spread out across the circle)
 
 if local_mode:
-    aruco_img = cv2.imread("aruco_images/aruco_7.png")
+    aruco_img = cv2.imread("aruco_images/aruco_5.png")
 else:
     robot = CRS97()
     aruco_img = robot.grab_image()
@@ -31,7 +30,7 @@ print("[MAIN] Calculating state space (this may take a while)...")
 pybullet_robot.calculate_state_space(num_angle_samples=NUM_ANGLE_SAMPLES, step=STEP)
 
 print("[MAIN] Finding path...")
-q_path = pybullet_robot.get_q_path(step_size=10, num_angle_options=NUM_ANGLE_OPTIONS)
+q_path = pybullet_robot.get_q_path()
 print(f"[MAIN] Path found: {q_path}")
 
 if use_gui:
