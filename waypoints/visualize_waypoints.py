@@ -1,18 +1,14 @@
-
 import json
-
 import utils
-
-
-waypoints_raw = json.load(open("waypoints_M.json", "r"))
-# use only every nth waypoint for clarity
-waypoints_raw = waypoints_raw[::5]
-
-
-# use matplotlib to visualize waypoints in 3D
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+
+
+waypoints_raw = json.load(open("waypoint_paths/waypoints_M.json", "r"))
+
+# use only every nth waypoint for clarity
+waypoints_raw = waypoints_raw[::5]
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
@@ -29,7 +25,6 @@ xs, ys, zs = pts[:, 0], pts[:, 1], pts[:, 2]
 scene_scale = np.max(np.ptp(pts, axis=0)) if pts.shape[0] > 1 else 1.0
 frame_scale = scene_scale * 0.1
 
-# draw points
 ax.scatter(xs, ys, zs, c='k', s=8)
 
 # draw frames (local axes) at each waypoint
@@ -70,7 +65,6 @@ ax.set_zlabel('Z')
 try:
     ax.set_box_aspect([1, 1, 1])
 except Exception:
-    # fallback: set equal scaling by setting limits
     max_range = scene_scale / 2.0 if scene_scale > 0 else 1.0
     mid_x, mid_y, mid_z = xs.mean(), ys.mean(), zs.mean()
     ax.set_xlim(mid_x - max_range, mid_x + max_range)
@@ -78,6 +72,6 @@ except Exception:
     ax.set_zlim(mid_z - max_range, mid_z + max_range)
 
 # make all axes have the same scale
-plt.axis('equal')  # does not work for 3D
+plt.axis('equal') 
 
 plt.show()

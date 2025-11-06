@@ -57,6 +57,50 @@ def inv_T(T):
     Ti[:3,3] = -R.T @ p
     return Ti
 
+########################## Transformations ##########################
+
+def rotm_to_rpy_zyx(R):
+    """
+    Convert rotation matrix to ZYX Euler angles:
+    yaw (Z), pitch (Y), roll (X)
+    returns [roll, pitch, yaw] in radians
+    """
+    r11, r12, r13 = R[0,0], R[0,1], R[0,2]
+    r21, r22, r23 = R[1,0], R[1,1], R[1,2]
+    r31, r32, r33 = R[2,0], R[2,1], R[2,2]
+
+    yaw   = np.arctan2(r21, r11)
+    pitch = np.arcsin(-r31)
+    roll  = np.arctan2(r32, r33)
+
+    return [float(roll), float(pitch), float(yaw)]
+
+
+########################## Vector ##########################
+
+def normalize(v):
+    n = np.linalg.norm(v)
+    if n < 1e-12:
+        return v * 0.0
+    return v / n
+
+def skew(v):
+    x, y, z = v
+    return np.array([[0, -z,  y],
+                     [z,  0, -x],
+                     [-y, x,  0]], dtype=float)
+
+def rodrigues(axis, theta):
+    axis = normalize(axis)
+    K = skew(axis)
+    return np.eye(3) + np.sin(theta)*K + (1.0 - np.cos(theta))*(K @ K)
+
+def mats_equal(a, b, atol=1e-9, rtol=1e-9):
+    # Compare two flattened rotation matrices (lists) robustly
+    return np.allclose(np.asarray(a, dtype=float),
+                       np.asarray(b, dtype=float),
+                       atol=atol, rtol=rtol)
+
 ########################## Constants ##########################
 
 #rpy_offset = np.array([-0.06, 0.05, 0.0])
