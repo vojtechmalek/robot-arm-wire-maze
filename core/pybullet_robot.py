@@ -154,12 +154,36 @@ class PybulletRobot(CRSRobot):
         contacts = self._bullet_client.getContactPoints(bodyA=self._robot_urdf, bodyB=self._maze_urdf)
         return len(contacts) > 0
     
+    def is_path_colliding_with_maze(self, start_q: np.ndarray, end_q: np.ndarray, num_steps: int = 10) -> bool:
+        """Check if collision occurs along a path."""
+        for i in range(num_steps):
+            t = i / (num_steps - 1)
+            q = start_q * (1 - t) + end_q * t
+            self._set_q(q)
+            self.step_simulation()
+            if self.is_colliding_with_maze():
+                return True
+        return False   
+    
     def get_robot_to_maze_distance(self) -> float:
         """Get the minimum distance between robot and maze."""
         points = self._bullet_client.getClosestPoints(bodyA=self._robot_urdf, bodyB=self._maze_urdf, distance=100.0)
         if len(points) == 0:
             return float('inf')
         min_distance = min([p[8] for p in points])  # contactDistance is at index 8
+        return min_distance
+
+    def get_robot_to_maze_distance_along_path(self, start_q: np.ndarray, end_q: np.ndarray, num_steps: int = 10) -> float:
+        """Get the minimum distance between robot and maze along a path."""
+        min_distance = float('inf')
+        for i in range(num_steps):
+            t = i / (num_steps - 1)
+            q = start_q * (1 - t) + end_q * t
+            self._set_q(q)
+            self.step_simulation()
+            distance = self.get_robot_to_maze_distance()
+            if distance < min_distance:
+                min_distance = distance
         return min_distance
     
     ####################################################################################################################
@@ -197,11 +221,195 @@ class PybulletRobot(CRSRobot):
     # PATH PLANNING
     ####################################################################################################################
 
-    def get_q_path(self):
+    def get_q_path(self, 
+                   step_size: int = 10,
+                   alpha: float = 1.0,
+                   beta: float = 3.0,
+                   num_path_steps: int = 5,
+                   num_angle_options: int = 3):
         """
-        Find a path to solve the maze.
+        Find a path to solve the maze using state space pathfinding.
+        
+        Args:
+            step_size: Maximum step size in grid (allows skipping adjacent states)
+            alpha: Weight for joint distance (path length) - higher = prioritize shorter paths
+            beta: Weight for distance from maze (safety) - higher = prioritize staying far from maze
+            num_path_steps: Number of interpolation steps for collision checking between states
+            num_angle_options: Number of start and goal angles to try (spread out across the circle)
+        
+        Returns:
+            List of joint configurations (q) representing the path, or empty list if no path found
         """
-        return []
+        if self.state_space._ik_solutions is None:
+            raise ValueError("State space not calculated. Call calculate_state_space() first.")
+        
+        waypoints = self.state_space.waypoints
+        if waypoints is None or len(waypoints) == 0:
+            return []
+        
+        num_angle_samples = self.state_space._num_angle_samples
+        
+        # Start at first waypoint, goal at last waypoint
+        start_waypoint_idx = 0
+        goal_waypoint_idx = len(waypoints) - 1
+        
+        # Find valid angle indices for start and goal (limit to 3, spread out across the circle)
+        # First, collect all valid angles
+        all_valid_start_angles = []
+        all_valid_goal_angles = []
+        
+        for iy in range(num_angle_samples):
+            if self.state_space.get_q_for_state(start_waypoint_idx, iy) is not None:
+                all_valid_start_angles.append(iy)
+        
+        for iy in range(num_angle_samples):
+            if self.state_space.get_q_for_state(goal_waypoint_idx, iy) is not None:
+                all_valid_goal_angles.append(iy)
+        
+        # Pick 3 angles spread out across the circle (not consecutive)
+        # Strategy: pick angles at roughly 0°, 120°, 240° positions
+        def pick_spread_angles(valid_angles, num_to_pick=3):
+            if len(valid_angles) <= num_to_pick:
+                return valid_angles  # Return all if we have 3 or fewer
+            
+            # Calculate target positions (evenly spaced around the circle)
+            target_positions = [int(i * num_angle_samples / num_to_pick) % num_angle_samples 
+                              for i in range(num_to_pick)]
+            
+            picked = []
+            for target_pos in target_positions:
+                # Find the valid angle closest to this target position
+                # Consider circular distance
+                best_angle = None
+                best_dist = float('inf')
+                
+                for angle in valid_angles:
+                    # Calculate circular distance
+                    dist_direct = abs(angle - target_pos)
+                    dist_wrap = num_angle_samples - dist_direct
+                    dist = min(dist_direct, dist_wrap)
+                    
+                    if dist < best_dist:
+                        best_dist = dist
+                        best_angle = angle
+                
+                if best_angle is not None and best_angle not in picked:
+                    picked.append(best_angle)
+            
+            # If we didn't get enough, add more from the remaining valid angles
+            remaining = [a for a in valid_angles if a not in picked]
+            while len(picked) < num_to_pick and len(remaining) > 0:
+                # Pick the one furthest from already picked angles
+                best_angle = None
+                best_min_dist = -1
+                
+                for angle in remaining:
+                    # Find minimum distance to any already picked angle
+                    min_dist = float('inf')
+                    for picked_angle in picked:
+                        dist_direct = abs(angle - picked_angle)
+                        dist_wrap = num_angle_samples - dist_direct
+                        dist = min(dist_direct, dist_wrap)
+                        min_dist = min(min_dist, dist)
+                    
+                    if min_dist > best_min_dist:
+                        best_min_dist = min_dist
+                        best_angle = angle
+                
+                if best_angle is not None:
+                    picked.append(best_angle)
+                    remaining.remove(best_angle)
+            
+            return picked[:num_to_pick]  # Return at most num_to_pick
+        
+        valid_start_angles = pick_spread_angles(all_valid_start_angles, num_angle_options)
+        valid_goal_angles = pick_spread_angles(all_valid_goal_angles, num_angle_options)
+        
+        if len(valid_start_angles) == 0 or len(valid_goal_angles) == 0:
+            print(f"[PATHFINDING] No valid start ({len(valid_start_angles)} found) or goal ({len(valid_goal_angles)} found) configuration")
+            return []
+        
+        print(f"[PATHFINDING] Found {len(valid_start_angles)} valid start angles: {valid_start_angles}")
+        print(f"[PATHFINDING] Found {len(valid_goal_angles)} valid goal angles: {valid_goal_angles}")
+        print(f"[PATHFINDING] Trying {len(valid_start_angles)} × {len(valid_goal_angles)} = {len(valid_start_angles) * len(valid_goal_angles)} combinations")
+        
+        # Create separate simulation for pathfinding (headless, faster)
+        test_robot = None
+        created_separate_sim = False
+        
+        if self._bullet_client.isConnected():
+            # Import here to avoid circular dependency
+            from .pybullet_robot import PybulletRobot
+            # Create a headless simulation for faster pathfinding
+            test_robot = PybulletRobot(maze=self._maze, maze_pose=self._maze_pose, use_gui=False)
+            created_separate_sim = True
+            print("[PATHFINDING] Using separate headless simulation for pathfinding")
+        else:
+            test_robot = self
+        
+        try:
+            # Try all combinations and pick the best path
+            best_path = None
+            best_path_cost = float('inf')
+            best_start_angle = None
+            best_goal_angle = None
+            
+            for start_angle_idx in valid_start_angles:
+                for goal_angle_idx in valid_goal_angles:
+                    print(f"[PATHFINDING] Trying start_angle={start_angle_idx}, goal_angle={goal_angle_idx}...")
+                    q_path = self.state_space.find_path(
+                        start_waypoint_idx=start_waypoint_idx,
+                        start_angle_idx=start_angle_idx,
+                        goal_waypoint_idx=goal_waypoint_idx,
+                        goal_angle_idx=goal_angle_idx,
+                        step_size=step_size,
+                        alpha=alpha,
+                        beta=beta,
+                        test_robot=test_robot,
+                        num_path_steps=num_path_steps,
+                        early_stop_waypoint_threshold=3  # Stop if within 3 waypoints of goal
+                    )
+                    
+                    if q_path is not None and len(q_path) > 0:
+                        print(f"[PATHFINDING] Found path with {len(q_path)} waypoints for start_angle={start_angle_idx}, goal_angle={goal_angle_idx}")
+                        # Calculate path cost (sum of edge costs)
+                        path_cost = 0.0
+                        for i in range(len(q_path) - 1):
+                            # Get states for these qs (approximate)
+                            # We'll use a simpler metric: total joint distance
+                            joint_dist = np.linalg.norm(q_path[i+1] - q_path[i])
+                            path_cost += joint_dist
+                        
+                        if path_cost < best_path_cost:
+                            best_path = q_path
+                            best_path_cost = path_cost
+                            best_start_angle = start_angle_idx
+                            best_goal_angle = goal_angle_idx
+                            
+                            # Early stopping: if we found a good enough path, stop searching
+                            # A "good enough" path is one that's reasonably short
+                            # We'll continue if we haven't tried many combinations yet, but stop if we have a decent path
+                            if len(valid_start_angles) * len(valid_goal_angles) > 3 and best_path_cost < 10.0:
+                                print(f"[PATHFINDING] Found good enough path (cost={best_path_cost:.4f}), stopping early")
+                                break
+                    else:
+                        print(f"[PATHFINDING] No path found for start_angle={start_angle_idx}, goal_angle={goal_angle_idx}")
+                
+                # Break outer loop if we found a good enough path
+                if best_path is not None and best_path_cost < 10.0 and len(valid_start_angles) * len(valid_goal_angles) > 3:
+                    break
+            
+            if best_path is None:
+                print("[PATHFINDING] No path found for any start/goal combination")
+                return []
+            
+            print(f"[PATHFINDING] Found best path with {len(best_path)} waypoints (start_angle={best_start_angle}, goal_angle={best_goal_angle}, cost={best_path_cost:.4f})")
+            return best_path
+        
+        finally:
+            # Clean up separate simulation if we created one
+            if created_separate_sim and test_robot is not None:
+                test_robot.close()
 
     ####################################################################################################################
     # CLEANUP
