@@ -8,7 +8,7 @@ import utils
 ################################
 
 DXF_FILE = "dxf_paths/E_path.dxf"        # your DXF
-OUTPUT_FILE = "opt_waypoint_paths/waypoints_M.json"      # output JSON, working file
+OUTPUT_FILE = "opt_waypoint_paths/waypoints_E.json"      # output JSON, working file
 RESAMPLE_STEP = 0.005                 # 1 mm in meters
 UNIT_SCALE = 0.001                    # DXF usualy mm -> convert to m
 TOOL_AXIS = 'X'                       # which tool axis should align with path tangent
@@ -18,6 +18,9 @@ WORLD_UP = np.array([0, 0, 1.0])      # reference "up" to stabilize roll
 OFFSET_X = -0.005   # meters
 OFFSET_Y = -0.005  # meters
 OFFSET_Z = 0.000   # meters
+
+GUIDE_OFFSET = 0.03 # Offest before the maze start to prevent colision
+TWO_POINTS_DIST_TRESHOLD = 0.02 # minimal distance between two final waypoints to account for interpolation problems
 
 
 ################################
@@ -296,18 +299,35 @@ def main():
             p_curr[2] + OFFSET_Z,
         ])
 
+        # at first add initial waypoint to guide into maze 
+        if len(waypoints) < 1:
+            p_shifted = utils.move_back_along_x(p_curr_offset, R_tool_world, distance=GUIDE_OFFSET)
+
+            waypoints.append({
+                "pos": p_shifted.tolist(),
+                "rpy": [float(rpy[0]), float(rpy[1]), float(rpy[2])],
+                "mat": mat_flat,
+                "idx": int(i)
+            })
+
         # compress if last two mats equal to current mat == colinear points
         if len(waypoints) >= 2:
-            if utils.mats_equal(waypoints[-2]["mat"], waypoints[-1]["mat"]) and utils.mats_equal(waypoints[-1]["mat"], mat_flat):
-                # remove the middle of the triple (the current last waypoint)
+            same_orientation = (
+                utils.mats_equal(waypoints[-2]["mat"], waypoints[-1]["mat"]) and
+                utils.mats_equal(waypoints[-1]["mat"], mat_flat)
+            )
+            close_points = utils.points_dist_threshold_check(waypoints[-2]["pos"], waypoints[-1]["pos"], threshold=TWO_POINTS_DIST_TRESHOLD)
+
+            if same_orientation and close_points:
                 waypoints.pop()
+
 
         # now append the new waypoint with correct id
         waypoints.append({
             "pos": p_curr_offset.tolist(),
             "rpy": [float(rpy[0]), float(rpy[1]), float(rpy[2])],
             "mat": mat_flat,
-            "idx": int(i)
+            "idx": int(i) + 1
         })
 
     # last point, reuse last orientation — also run the same compression logic
