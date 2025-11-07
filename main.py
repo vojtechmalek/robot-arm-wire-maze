@@ -4,11 +4,12 @@ from core import PybulletRobot, base_detection
 from time import sleep
     
 # Configuration
-maze = "A"
-local_mode = False
+maze = "D"
+local_mode = True
 use_gui = True
 
 NUM_ANGLE_SAMPLES = 32
+NUM_TILT_SAMPLES = 5
 STEP = 1
 
 if local_mode:
@@ -30,7 +31,7 @@ pybullet_robot = PybulletRobot(maze=maze, maze_pose=maze_pose, use_gui=use_gui)
 
 # Calculate state space
 print("[MAIN] Calculating state space (this may take a while)...")
-pybullet_robot.calculate_state_space(num_angle_samples=NUM_ANGLE_SAMPLES, step=STEP)
+pybullet_robot.calculate_state_space(num_angle_samples=NUM_ANGLE_SAMPLES, num_tilt_samples=NUM_TILT_SAMPLES, step=STEP)
 
 print("[MAIN] Finding path...")
 q_path = pybullet_robot.get_q_path()

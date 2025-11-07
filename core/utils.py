@@ -40,7 +40,8 @@ def rotzyx(roll, pitch, yaw):
 def get_waypoint_pose(waypoint: Dict[str, Any], 
                      base_center_robot: np.ndarray, 
                      center_rot: float, 
-                     angle_offset: float = 0.0) -> Pose:
+                     angle_offset_z: float = 0.0,
+                     angle_offset_x: float = 0.0) -> Pose:
     """
     Calculate the pose for a waypoint given maze position and rotation.
     """
@@ -74,7 +75,7 @@ def get_waypoint_pose(waypoint: Dict[str, Any],
     pose = pose @ Pose(rpy=np.array([np.pi/2, 0, 0]))
     
     # Apply additional angle offset around Z
-    pose = pose @ Pose(rpy=np.array([0, 0, angle_offset]))
+    pose = pose @ Pose(rpy=np.array([0, angle_offset_x, angle_offset_z]))
     
     return pose
 

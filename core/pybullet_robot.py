@@ -199,6 +199,7 @@ class PybulletRobot(CRSRobot):
     
     def calculate_state_space(self,
                               num_angle_samples: int = 8,
+                              num_tilt_samples: int = 3,
                               step: int = 1,
                               ):
         """
@@ -207,6 +208,7 @@ class PybulletRobot(CRSRobot):
         self.state_space.calculate(
             waypoints_path=f"waypoints/opt_waypoint_paths/waypoints_{self._maze}.json",
             num_angle_samples=num_angle_samples,
+            num_tilt_samples=num_tilt_samples,
             step=step,
             use_separate_simulation=self._use_gui
         )
