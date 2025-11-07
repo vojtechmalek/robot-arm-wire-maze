@@ -237,3 +237,93 @@ class PybulletRobot(CRSRobot):
         if self._bullet_client is not None:
             self._bullet_client.disconnect()
 
+    #####################################################################################################################
+    # INVERSE KINEMATICS (OVERRIDE)
+    #####################################################################################################################
+    def ik(self, pose: np.ndarray) -> list[np.ndarray]:
+        """Compute inverse kinematics for the given pose. Returns array of joint
+        configurations [rad] which can achieve the given pose.
+        Args:
+            pose: 4x4 homogeneous transformation matrix (SE3) of the flange with respect to the base of the robot.
+        """
+
+        # X=A01*A12*A23 * [0 0 0 1]' because A34*A45*A57==R34*R45*R56 is pure rotation
+        flange_pos = pose @ np.array([0, 0, -self.dh_d[5], 1])
+        sols_q_03 = self._ik_flange_pos(flange_pos)
+
+        singularity_theta4 = 0
+
+        sols = []
+        for q_03 in sols_q_03:
+            rot_03 = self.fk(q_03)[:3, :3]
+            rot_36 = rot_03.T @ pose[:3, :3]
+
+            # Euler Z - Y Z for joints 4, 5, 6
+            P = rot_36
+            if np.isclose(P[2][2], 1):  # np.cos(theta5) == 1
+                sols.append(
+                    np.concatenate(
+                        [
+                            q_03,
+                            [
+                                singularity_theta4,
+                                0,
+                                np.arctan2(P[1][0], P[0][0]) - singularity_theta4,
+                            ],
+                        ]
+                    )
+                )
+            elif np.isclose(P[2][2], -1):  # np.cos(theta5) == -1
+                sols.append(
+                    np.concatenate(
+                        [
+                            q_03,
+                            [
+                                singularity_theta4,
+                                np.pi,
+                                np.arctan2(P[1][0], -P[0][0]) + singularity_theta4,
+                            ],
+                        ]
+                    )
+                )
+            else:  # non - degenerate
+                theta5 = np.arccos(P[2][2])
+                sols.append(
+                    np.concatenate(
+                        [
+                            q_03,
+                            [
+                                np.arctan2(
+                                    P[1][2] * np.sign(np.sin(theta5)),
+                                    P[0][2] * np.sign(np.sin(theta5)),
+                                ),
+                                -theta5,
+                                np.arctan2(
+                                    P[2][1] * np.sign(np.sin(theta5)),
+                                    -P[2][0] * np.sign(np.sin(theta5)),
+                                ),
+                            ],
+                        ]
+                    )
+                )
+                sols.append(
+                    np.concatenate(
+                        [
+                            q_03,
+                            [
+                                np.arctan2(
+                                    P[1][2] * np.sign(np.sin(-theta5)),
+                                    P[0][2] * np.sign(np.sin(-theta5)),
+                                ),
+                                theta5,
+                                np.arctan2(
+                                    P[2][1] * np.sign(np.sin(-theta5)),
+                                    -P[2][0] * np.sign(np.sin(-theta5)),
+                                ),
+                            ],
+                        ]
+                    )
+                )
+        # np.random.shuffle(sols)
+        return sols
+
