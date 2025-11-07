@@ -11,7 +11,7 @@ from . import utils
 if TYPE_CHECKING:
     from .pybullet_robot import PybulletRobot
 
-GROUND_LIMIT = 0.03  # meters
+GROUND_LIMIT = 0.05  # meters
 
 
 class StateSpace:
@@ -54,6 +54,10 @@ class StateSpace:
         """
         
         waypoints = json.load(open(waypoints_path, "r"))
+        
+        # remove last waypoint that is in the base
+        waypoints = waypoints[:-1]
+
         self._waypoints = waypoints
         
         # Extract maze position and rotation

@@ -4,7 +4,7 @@ from core import PybulletRobot, base_detection
 from time import sleep
     
 # Configuration
-maze = "E"
+maze = "D"
 local_mode = True
 use_gui = True
 
@@ -43,7 +43,7 @@ if use_gui:
     pybullet_robot.visualize_state_space()
 
 
-if not local_mode:
+if not local_mode and q_path is not None and len(q_path) > 0:
         
     # move to start of path
     robot.move_to_q(q_path[0])
@@ -61,6 +61,9 @@ if not local_mode:
     for q in reversed(q_path):
         robot.move_to_q(q)
         robot.wait_for_motion_stop()
+
+    robot.move_to_q(robot.q_home)
+    robot.wait_for_motion_stop()
 
 # Clean up
 pybullet_robot.close()
