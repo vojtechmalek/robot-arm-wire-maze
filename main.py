@@ -5,14 +5,14 @@ from time import sleep
     
 # Configuration
 maze = "D"
-local_mode = False
+local_mode = True
 use_gui = True
 
 NUM_ANGLE_SAMPLES = 32
 STEP = 1
 
 if local_mode:
-    aruco_img = cv2.imread("aruco_images/aruco_5.png")
+    aruco_img = cv2.imread("aruco_images/aruco_7.png")
 else:
     robot = CRS97()
     robot.initialize(home=False)  # initialize connection to the robot, perform hard and soft home
@@ -34,7 +34,7 @@ pybullet_robot.calculate_state_space(num_angle_samples=NUM_ANGLE_SAMPLES, step=S
 
 print("[MAIN] Finding path...")
 q_path = pybullet_robot.get_q_path()
-print(f"[MAIN] Path found: {q_path}")
+print(f"[MAIN] Found path of length: {len(q_path) if q_path is not None else 'None'}")
 
 if use_gui:
     # Visualize state space (interactive plot)
@@ -47,7 +47,6 @@ if not local_mode and q_path is not None and len(q_path) > 0:
         
     # move to start of path
     robot.move_to_q(q_path[0])
-    pybullet_robot._set_q(q_path[0])
     robot.wait_for_motion_stop()
 
 
