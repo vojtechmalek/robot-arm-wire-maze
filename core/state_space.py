@@ -209,9 +209,13 @@ class StateSpace:
         # Track the best goal state (lowest cost to reach final waypoint)
         best_goal_state = None
         
+        print("[STATE_SPACE] Starting pathfinding using Dijkstra's algorithm...")
+        
         try:
-            while priority_queue:
+            while priority_queue:               
                 cost_so_far, waypoint_idx, angle_idx, ik_solution_idx, prev_wp, prev_ang, prev_ik = heapq.heappop(priority_queue)
+                
+                print(f"[STATE_SPACE] Remaining distance: {grid_count_x - waypoint_idx}", end='\r')
                 
                 # Skip if we've found a better path to this state
                 state = (waypoint_idx, angle_idx, ik_solution_idx)
@@ -290,6 +294,7 @@ class StateSpace:
                                            waypoint_idx, angle_idx, ik_solution_idx))
         
         finally:
+            print("")  # Newline after progress output
             # Clean up separate simulation if we created one
             if created_separate_sim:
                 test_robot.close()
