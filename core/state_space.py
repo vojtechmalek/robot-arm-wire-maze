@@ -11,7 +11,7 @@ from . import utils
 if TYPE_CHECKING:
     from .pybullet_robot import PybulletRobot
 
-GROUND_LIMIT = 0.03  # meters
+GROUND_LIMIT = 0.05  # meters
 
 
 class StateSpace:
@@ -52,6 +52,10 @@ class StateSpace:
         """
         
         waypoints = json.load(open(waypoints_path, "r"))
+        
+        # remove last waypoint that is in the base
+        waypoints = waypoints[:-1]
+
         self._waypoints = waypoints
         
         # Extract maze position and rotation
@@ -168,8 +172,13 @@ class StateSpace:
         state_queue = []
         visited_states = set()
 
-        state_queue.append( (0, 0, 0, 0, -1, -1, -1) )  # waypoint_idx, angle_idx, ik_solution_idx, cost_so_far, prev_waypoint_idx, prev_angle_idx, prev_ik_solution_idx
+        # append all start angles
+        for angle_idx in range(grid_count_y):
+            state_queue.append( (0, angle_idx, 0, 0, -1, -1, -1) )
+        # state_queue.append( (0, 0, 0, 0, -1, -1, -1) )  # waypoint_idx, angle_idx, ik_solution_idx, cost_so_far, prev_waypoint_idx, prev_angle_idx, prev_ik_solution_idx
         
+
+
         reached_goal = False
 
         while state_queue:
@@ -265,14 +274,18 @@ class StateSpace:
         # if we have something we at least want to visualize the search tree
 
         # get last path state
-        last_state = path_states[-1]
+        current_state = path_states[-1]
 
         # reconstruct path
         reconstructed_path_states = []
-        while last_state[0] != 0 or last_state[1] != 0:
-            waypoint_idx, angle_idx, ik_solution_idx, cost_so_far, prev_waypoint_idx, prev_angle_idx, prev_ik_solution_idx = last_state
+        while True:
+            waypoint_idx, angle_idx, ik_solution_idx, cost_so_far, prev_waypoint_idx, prev_angle_idx, prev_ik_solution_idx = current_state
             reconstructed_path_states.append((waypoint_idx, angle_idx, ik_solution_idx, cost_so_far))
-            last_state = next((s for s in path_states if s[0] == prev_waypoint_idx and s[1] == prev_angle_idx and s[2] == prev_ik_solution_idx), None)
+
+            if current_state[4] == -1:
+                break
+
+            current_state = next((s for s in path_states if s[0] == prev_waypoint_idx and s[1] == prev_angle_idx and s[2] == prev_ik_solution_idx), None)
 
         self._path_states = reconstructed_path_states[::-1]  # reverse to get from start to goal
         
@@ -281,9 +294,6 @@ class StateSpace:
         for waypoint_idx, angle_idx, ik_solution_idx, _ in self._path_states:
             viable_sols = ik_solutions[waypoint_idx][angle_idx]
             q_path.append(viable_sols[ik_solution_idx])
-
-        if not reached_goal:
-            return None
         
         return q_path
 
