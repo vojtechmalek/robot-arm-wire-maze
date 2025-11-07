@@ -43,6 +43,7 @@ class StateSpace:
         self._num_angle_samples: Optional[int] = None
         self._step: Optional[int] = None
         self._path_states: Optional[List[Tuple[int, int]]] = None  # Path states (waypoint_idx, angle_idx) for visualization
+        self._search_tree = None  # For pathfinding optimization
     
     
     def calculate(self, waypoints_path, num_angle_samples, step, use_separate_simulation):
@@ -153,6 +154,8 @@ class StateSpace:
         grid_count_y = self._num_angle_samples
         grid_count_x = len(self._waypoints)
 
+        MAX_ANGLE_CHANGE = np.deg2rad(45)  # maximum allowed joint change between steps
+
         q_path = []
         path_states = []
         # previous_q = None
@@ -167,6 +170,8 @@ class StateSpace:
 
         state_queue.append( (0, 0, 0, 0, -1, -1, -1) )  # waypoint_idx, angle_idx, ik_solution_idx, cost_so_far, prev_waypoint_idx, prev_angle_idx, prev_ik_solution_idx
         
+        reached_goal = False
+
         while state_queue:
             waypoint_idx, angle_idx, ik_solution_idx, cost_so_far, prev_waypoint_idx, prev_angle_idx, prev_ik_solution_idx = state_queue.pop(0)
 
@@ -183,24 +188,81 @@ class StateSpace:
             path_states.append((waypoint_idx, angle_idx, ik_solution_idx, cost_so_far, prev_waypoint_idx, prev_angle_idx, prev_ik_solution_idx))
 
             if waypoint_idx == grid_count_x - 1:
+                # Reached goal waypoint
+                reached_goal = True
                 break
 
-            # Enqueue next states
-            next_waypoint_idx = waypoint_idx + 1
-            for next_angle_idx in range(grid_count_y):
-                next_viable_sols = ik_solutions[next_waypoint_idx][next_angle_idx]
-                if next_viable_sols is None or len(next_viable_sols) == 0:
+            # enqueue next and previous angle offsets
+            for delta_angle in [-1, 1]:
+                next_angle_idx = (angle_idx + delta_angle) % grid_count_y
+                next_viable_sols = ik_solutions[waypoint_idx][next_angle_idx]
+                if next_viable_sols is None or len(next_viable_sols) < ik_solution_idx + 1:
                     continue
-                for next_ik_solution_idx in range(len(next_viable_sols)):
-                    # get q difference to previous q
-                    next_q = next_viable_sols[next_ik_solution_idx]
-                    q_diff = next_q - this_q
-                    # joint limits must be respected
-                    if np.any(np.abs(q_diff) > np.deg2rad(45)):
+                ik_solution = next_viable_sols[ik_solution_idx]
+                if ik_solution is not None:
+                    q_diff = ik_solution - this_q
+                    # max joint change must be respected
+                    if np.any(np.abs(q_diff) > MAX_ANGLE_CHANGE):
                         continue
+                    state_queue.append( (waypoint_idx, next_angle_idx, ik_solution_idx, cost_so_far + 1,
+                                     waypoint_idx, angle_idx, ik_solution_idx) )
+            
+            # enqueue next and previous waypoints
+            for delta_wp in [-1, 1]:
+                next_waypoint_idx = waypoint_idx + delta_wp
+                if next_waypoint_idx < 0 or next_waypoint_idx >= grid_count_x:
+                    continue
 
-                    state_queue.append( (next_waypoint_idx, next_angle_idx, next_ik_solution_idx, cost_so_far + 1,
+                next_viable_sols = ik_solutions[next_waypoint_idx][angle_idx]
+                if next_viable_sols is None or len(next_viable_sols) < ik_solution_idx + 1:
+                    continue
+
+                ik_solution = next_viable_sols[ik_solution_idx]
+                if ik_solution is not None:
+                    q_diff = ik_solution - this_q
+                    # max joint change must be respected
+                    if np.any(np.abs(q_diff) > MAX_ANGLE_CHANGE):
+                        continue
+                    state_queue.append( (next_waypoint_idx, angle_idx, ik_solution_idx, cost_so_far + 1,
                                          waypoint_idx, angle_idx, ik_solution_idx) )
+
+            # enqueue all ik solutions for current waypoint and angle
+            for next_ik_solution_idx in range(len(viable_sols)):
+                if next_ik_solution_idx == ik_solution_idx:
+                    continue
+                next_ik_solution = viable_sols[next_ik_solution_idx]
+                q_diff = next_ik_solution - this_q
+                # max joint change must be respected
+                if np.any(np.abs(q_diff) > MAX_ANGLE_CHANGE):
+                    continue
+
+                state_queue.append( (waypoint_idx, angle_idx, next_ik_solution_idx, cost_so_far + 1,
+                                     waypoint_idx, angle_idx, ik_solution_idx) )
+
+
+            # # Enqueue next states
+            # next_waypoint_idx = waypoint_idx + 1
+
+            # for next_angle_idx in range(grid_count_y):
+            #     next_viable_sols = ik_solutions[next_waypoint_idx][next_angle_idx]
+            #     if next_viable_sols is None or len(next_viable_sols) == 0:
+            #         continue
+            #     for next_ik_solution_idx in range(len(next_viable_sols)):
+            #         # get q difference to previous q
+            #         next_q = next_viable_sols[next_ik_solution_idx]
+            #         q_diff = next_q - this_q
+            #         # max joint change must be respected
+            #         if np.any(np.abs(q_diff) > MAX_ANGLE_CHANGE):
+            #             continue
+
+            #         state_queue.append( (next_waypoint_idx, next_angle_idx, next_ik_solution_idx, cost_so_far + 1,
+            #                              waypoint_idx, angle_idx, ik_solution_idx) )
+
+        self._search_tree = path_states
+
+        if len(path_states) == 0:
+            return None
+        # if we have something we at least want to visualize the search tree
 
         # get last path state
         last_state = path_states[-1]
@@ -220,6 +282,9 @@ class StateSpace:
             viable_sols = ik_solutions[waypoint_idx][angle_idx]
             q_path.append(viable_sols[ik_solution_idx])
 
+        if not reached_goal:
+            return None
+        
         return q_path
 
     def move_to_point(self, waypoint_idx: int, angle_idx: int) -> bool:
@@ -289,15 +354,32 @@ class StateSpace:
                 path_x.append(x_coord)
                 path_y.append(angle_offset_deg)
 
-                point_cost = cost_so_far
-                # Normalize cost for color mapping
-                norm_cost = point_cost / max_cost if max_cost > 0 else 0
                 # Map cost to color (e.g., using a colormap)
-                point_colors.append(plt.cm.viridis(norm_cost))
+                point_colors.append(plt.cm.viridis(ik_solution_idx / 8.0))
 
             # Plot path as colored points
             ax.scatter(path_x, path_y, c=point_colors, s=50, marker='o', edgecolors='white', linewidths=1, zorder=10, label='Path')
             # ax.plot(path_x, path_y, c='red', linewidth=2, alpha=0.5, zorder=9)
+
+            search_x = []
+            search_y = []
+            search_colors = []
+            for waypoint_idx, angle_idx, ik_solution_idx, cost_so_far, prev_waypoint_idx, prev_angle_idx, prev_ik_solution_idx in self._search_tree:
+                # Convert grid indices to plot coordinates
+                x_coord = (waypoint_idx / grid_count_x) * (extent[1] - extent[0]) + extent[0]
+                angle_offset_deg = (angle_idx / (grid_count_y - 1)) * 360
+                search_x.append(x_coord)
+                search_y.append(angle_offset_deg)
+
+                point_cost = cost_so_far
+                # Normalize cost for color mapping
+                norm_cost = point_cost / max_cost if max_cost > 0 else 0
+                # Map cost to color (e.g., using a colormap)
+                search_colors.append(plt.cm.plasma(norm_cost))
+
+            # Plot search tree as colored points
+            ax.scatter(search_x, search_y, c=search_colors, s=10, marker='x', alpha=0.3, zorder=5, label='Search Tree')
+
             ax.legend()
         
         # Add colorbar

@@ -36,11 +36,6 @@ print("[MAIN] Finding path...")
 q_path = pybullet_robot.get_q_path()
 print(f"[MAIN] Path found: {q_path}")
 
-# move to start of path
-robot.move_to_q(q_path[0])
-pybullet_robot._set_q(q_path[0])
-robot.wait_for_motion_stop()
-
 if use_gui:
     # Visualize state space (interactive plot)
     print("[MAIN] Opening interactive state space visualization...")
@@ -49,6 +44,13 @@ if use_gui:
 
 
 if not local_mode:
+        
+    # move to start of path
+    robot.move_to_q(q_path[0])
+    pybullet_robot._set_q(q_path[0])
+    robot.wait_for_motion_stop()
+
+
     print("[MAIN] Moving robot according to path...")
     robot.initialize(home=False)
     for q in q_path:
