@@ -97,44 +97,7 @@ class Pose:
             yaw = 0
         
         return np.array([roll, pitch, yaw])
-    
-    @property
-    def quaternion(self) -> np.ndarray:
-        """
-        Get quaternion [w, x, y, z] (PyBullet format).
-        """
-        R = self._R
-        
-        # Convert rotation matrix to quaternion
-        trace = np.trace(R)
-        if trace > 0:
-            s = np.sqrt(trace + 1.0) * 2  # s = 4 * qw
-            w = 0.25 * s
-            x = (R[2, 1] - R[1, 2]) / s
-            y = (R[0, 2] - R[2, 0]) / s
-            z = (R[1, 0] - R[0, 1]) / s
-        else:
-            if R[0, 0] > R[1, 1] and R[0, 0] > R[2, 2]:
-                s = np.sqrt(1.0 + R[0, 0] - R[1, 1] - R[2, 2]) * 2
-                w = (R[2, 1] - R[1, 2]) / s
-                x = 0.25 * s
-                y = (R[0, 1] + R[1, 0]) / s
-                z = (R[0, 2] + R[2, 0]) / s
-            elif R[1, 1] > R[2, 2]:
-                s = np.sqrt(1.0 + R[1, 1] - R[0, 0] - R[2, 2]) * 2
-                w = (R[0, 2] - R[2, 0]) / s
-                x = (R[0, 1] + R[1, 0]) / s
-                y = 0.25 * s
-                z = (R[1, 2] + R[2, 1]) / s
-            else:
-                s = np.sqrt(1.0 + R[2, 2] - R[0, 0] - R[1, 1]) * 2
-                w = (R[1, 0] - R[0, 1]) / s
-                x = (R[0, 2] + R[2, 0]) / s
-                y = (R[1, 2] + R[2, 1]) / s
-                z = 0.25 * s
-        
-        return np.array([w, x, y, z])
-    
+
     def __matmul__(self, other: Union['Pose', np.ndarray]) -> Union['Pose', np.ndarray]:
         """
         Compose poses: self @ other
@@ -162,25 +125,5 @@ class Pose:
             T_result = other @ self.T
             return Pose(T=T_result)
         return NotImplemented
-    
-    def inverse(self) -> 'Pose':
-        """
-        Get the inverse pose.
-        
-        """
-        # Inverse: R_inv = R^T, p_inv = -R^T @ p
-        R_inv = self._R.T
-        p_inv = -R_inv @ self._p
-        return Pose(R=R_inv, p=p_inv)
-    
-    def __repr__(self) -> str:
-        """String representation of the pose."""
-        return f"Pose(p={self._p}, R=[[{self._R[0,0]:.3f}, ...]])"
-    
-    def __str__(self) -> str:
-        """Human-readable string representation."""
-        rpy = self.rpy
-        return f"Pose(position={self._p}, rpy=[{rpy[0]:.3f}, {rpy[1]:.3f}, {rpy[2]:.3f}])"
-
 
 

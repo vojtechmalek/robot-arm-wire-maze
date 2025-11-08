@@ -40,9 +40,11 @@ def rotzyx(roll, pitch, yaw):
 def get_waypoint_pose(waypoint: Dict[str, Any], 
                      base_center_robot: np.ndarray, 
                      center_rot: float, 
-                     angle_offset: float = 0.0) -> Pose:
+                     angle_offset: float = 0.0,
+                     tilt_roll_delta: float = 0.0,
+                     tilt_pitch_delta: float = 0.0) -> Pose:
     """
-    Calculate the pose for a waypoint given maze position and rotation.
+    Calculate the pose for a waypoint given maze position and rotation, with optional tilt.
     """
     pos = np.array(waypoint["pos"])
     rpy = np.array(waypoint["rpy"])
@@ -59,14 +61,20 @@ def get_waypoint_pose(waypoint: Dict[str, Any],
     # Move to waypoint position relative to maze center
     pose = pose @ Pose(p=pos)
     
-    # Apply waypoint orientation
+    # Apply waypoint orientation with tilt modifications
     if "mat" in waypoint:
         R_wp = np.array(waypoint["mat"]).reshape((3, 3))
         pose = pose @ Pose(R=R_wp)
+        # Apply tilt as additional rotations (in waypoint frame)
+        if abs(tilt_roll_delta) > 1e-6:
+            pose = pose @ Pose(rpy=np.array([tilt_roll_delta, 0, 0]))
+        if abs(tilt_pitch_delta) > 1e-6:
+            pose = pose @ Pose(rpy=np.array([0, tilt_pitch_delta, 0]))
     elif "rpy" in waypoint:
         # Apply waypoint orientation (roll, pitch, yaw separately for explicit control)
-        pose = pose @ Pose(rpy=np.array([rpy[0], 0, 0]))
-        pose = pose @ Pose(rpy=np.array([0, rpy[1], 0]))
+        # Add tilt deltas to roll and pitch
+        pose = pose @ Pose(rpy=np.array([rpy[0] + tilt_roll_delta, 0, 0]))
+        pose = pose @ Pose(rpy=np.array([0, rpy[1] + tilt_pitch_delta, 0]))
         pose = pose @ Pose(rpy=np.array([0, 0, rpy[2]]))
     
     # Adjust for robot end effector orientation
@@ -78,8 +86,26 @@ def get_waypoint_pose(waypoint: Dict[str, Any],
     
     return pose
 
+########################## Tilt directions ##########################
+
+def get_tilt_directions(num_directions: int = 4) -> list[tuple[float, float]]:
+    """
+    Get tilt direction vectors (roll_delta, pitch_delta) evenly distributed in a circle.
+    """
+    directions = []
+    # Generate directions evenly spaced around the circle
+    # Start at angle 0 (pointing right: roll=1, pitch=0) and go counter-clockwise
+    for i in range(num_directions):
+        angle = 2 * np.pi * i / num_directions
+        roll_dir = np.cos(angle)
+        pitch_dir = np.sin(angle)
+        directions.append((roll_dir, pitch_dir))
+    
+    return directions
+
 ########################## Robot movement ##########################
 
+#TODO remove - not used anymore
 def move_robot_by_ring_pose(robot,
                             ring_pose: Pose,
                             wait_for_motion_stop: bool = True) -> bool:
