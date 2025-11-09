@@ -80,6 +80,12 @@ def move_back_along_x(pos, rotm, distance=0.03):
     new_pos = np.array(pos) - x_axis_world * distance
     return new_pos
 
+def move_up_along_z(pos, rotm, distance=0.1):
+    R = np.array(rotm).reshape(3, 3)
+    z_axis_world = R[:, 1]           # local X direction in world coords
+    new_pos = np.array(pos) + z_axis_world * distance
+    return new_pos
+
 
 ########################## Vector ##########################
 
@@ -114,6 +120,3 @@ def points_dist_threshold_check(p1, p2, threshold=0.02):
     p2 = np.array(p2, dtype=float)
     dist = np.linalg.norm(p1 - p2)
     return dist < threshold
-
-
-########################## Constants ##########################
