@@ -34,12 +34,24 @@ TILT_INCREMENTAL_PENALTY = 3.0  # Additional penalty per 5° increment beyond ba
 # COST FUNCTIONS
 ################################################################################################################
 
-def joint_transition_cost(q1: np.ndarray, q2: np.ndarray) -> float:
+def state_transition_cost(old_q: np.ndarray, new_q: np.ndarray, 
+                          new_tilt_roll: float, new_tilt_pitch: float) -> float:
     """
-    Calculate cost of transitioning between two joint configurations.
+    Calculate the total cost of transitioning from one state to another.
     """
-    q_diff = q1 - q2
-    return np.sum(q_diff ** 2)
+    # Joint transition cost
+    step_cost = np.sum((old_q - new_q) ** 2) # sum of squared joint differences
+    
+    # Transition penalty: penalize any step that ends in a tilted state
+    # This encourages staying at lower tilts
+    # Penalty: 1 base + 1 per increment (1 for 5°, 2 for 10°, 3 for 15°, etc.)
+    tilt_penalty = 0.0
+    tilt_deg = np.rad2deg(np.sqrt(new_tilt_roll**2 + new_tilt_pitch**2))
+    if tilt_deg > 1e-6:  # Destination state is tilted
+        increments = int(np.ceil(tilt_deg / TILT_INCREMENT))
+        tilt_penalty = 1.0 + increments  # Base 1 + increment level
+    
+    return step_cost + tilt_penalty
 
 ################################################################################################################
 # STATE SPACE
@@ -276,20 +288,9 @@ class StateSpace:
                     if test_robot.is_path_colliding_with_maze(current_q, tilted_q):
                         continue
                     
-                    # Calculate cost
-                    step_cost = joint_transition_cost(current_q, tilted_q)
-                    
-                    # Transition penalty: penalize any step that ends in a tilted state
-                    # This encourages staying at lower tilts (or 0°)
-                    # Applies to: going up (0°→5°), staying tilted (5°→5°), going down (10°→5°)
-                    # Penalty: 1 base + 1 per increment (1 for 5°, 2 for 10°, 3 for 15°, etc.)
-                    tilt_penalty = 0.0
-                    tilt_deg = np.rad2deg(np.sqrt(tilt_roll_delta**2 + tilt_pitch_delta**2))
-                    if tilt_deg > 1e-6:  # Destination state is tilted
-                        increments = int(np.ceil(tilt_deg / TILT_INCREMENT))
-                        tilt_penalty = 1.0 + increments  # Base 1 + increment level
-                    
-                    new_cost = current_cost + step_cost + tilt_penalty
+                    # Calculate transition cost
+                    transition_cost = state_transition_cost(current_q, tilted_q, tilt_roll_delta, tilt_pitch_delta)
+                    new_cost = current_cost + transition_cost
                     
                     # Create new state with q tuple for hashing
                     q_tuple = tuple(tilted_q)
@@ -472,19 +473,9 @@ class StateSpace:
                             if test_robot.is_path_colliding_with_maze(current_q, next_q):
                                 continue
                             
-                            # Calculate new cost
-                            step_cost = joint_transition_cost(current_q, next_q)
-                            
-                            # Transition penalty: penalize any step that ends in a tilted state
-                            # This encourages staying at lower tilts (or 0°)
-                            # Applies to: going up (0°→5°), staying tilted (5°→5°), going down (10°→5°)
-                            # Penalty: 1 base + 1 per increment (1 for 5°, 2 for 10°, 3 for 15°, etc.)
-                            tilt_penalty = 0.0
-                            if next_tilt_deg > 1e-6:  # Destination state is tilted
-                                increments = int(np.ceil(next_tilt_deg / TILT_INCREMENT))
-                                tilt_penalty = 1.0 + increments  # Base 1 + increment level
-                            
-                            new_cost = cost_so_far + step_cost + tilt_penalty
+                            # Calculate transition cost
+                            transition_cost = state_transition_cost(current_q, next_q, next_tilt_roll, next_tilt_pitch)
+                            new_cost = cost_so_far + transition_cost
                             
                             # Create next state with q tuple for hashing
                             next_q_tuple = tuple(next_q)
