@@ -15,7 +15,7 @@ try:
     while True:
         input("Press Enter to capture an image (or Ctrl+C to exit)...")
         counter += 1
-        filename = f"capture_{counter:03d}.png"
+        filename = f"maze_detection_images/E/capture_{counter:03d}.png"
     
         print("Capturing image...")
         img = robot.grab_image()
