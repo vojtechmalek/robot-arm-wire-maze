@@ -2,17 +2,19 @@ import cv2
 from ctu_crs import CRS97
 from core import PybulletRobot, base_detection
 from time import sleep
+import cProfile
+
     
 # Configuration
 maze = "E"
-local_mode = True
-use_gui = True
+local_mode = False
+use_gui = False
 
-NUM_ANGLE_SAMPLES = 20
+NUM_ANGLE_SAMPLES = 30
 STEP = 1
 COLLISION_PADDING = 0.02  # Minimum distance to consider as collision (meters)
 MAX_TILT_ANGLE = 40  # Maximum tilt angle to try (degrees)
-NUM_TILT_DIRECTIONS = 4  # Number of tilt directions (4 = cardinal, 8 = cardinal + diagonal)
+NUM_TILT_DIRECTIONS = 8  # Number of tilt directions (4 = cardinal, 8 = cardinal + diagonal)
 
 if local_mode:
     aruco_img = cv2.imread("aruco_images/aruco_12.png")
@@ -33,6 +35,8 @@ pybullet_robot = PybulletRobot(maze=maze, maze_pose=maze_pose, use_gui=use_gui, 
 
 # Find path (calculates state space on-the-fly)
 print("[MAIN] Finding path")
+
+# cProfile.run("q_path = pybullet_robot.find_path(num_angle_samples=NUM_ANGLE_SAMPLES, step=STEP, max_tilt_angle=MAX_TILT_ANGLE, num_tilt_directions=NUM_TILT_DIRECTIONS)", "profile_stats.prof")
 q_path = pybullet_robot.find_path(
     num_angle_samples=NUM_ANGLE_SAMPLES, 
     step=STEP,
@@ -44,7 +48,7 @@ if use_gui:
     # Visualize state space (interactive plot)
     print("[MAIN] Opening interactive state space visualization...")
     print("[MAIN] Click or drag on the plot to move the robot to different configurations.")
-    pybullet_robot.visualize_state_space(viz_0_tilt=True)
+    pybullet_robot.visualize_state_space()
 
 
 if not local_mode and q_path is not None and len(q_path) > 0:
@@ -60,7 +64,7 @@ if not local_mode and q_path is not None and len(q_path) > 0:
         robot.move_to_q(q)
         robot.wait_for_motion_stop()
 
-    sleep(10)  # small delay between movements
+    sleep(2)  # small delay between movements
 
     for q in reversed(q_path):
         robot.move_to_q(q)

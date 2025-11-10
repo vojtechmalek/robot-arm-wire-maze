@@ -29,6 +29,7 @@ MAX_JOINT_CHANGE = np.deg2rad(90)  # Maximum allowed joint change per step (per 
 TILT_BASE_PENALTY = 5.0  # Base penalty for any non-zero tilt
 TILT_INCREMENTAL_PENALTY = 5.0  # Additional penalty per 5° increment beyond base
 
+Z_OFFSET = 0.02  # meters, vertical offset based on hoop angle
 
 ################################################################################################################
 # COST FUNCTIONS
@@ -118,7 +119,7 @@ class StateSpace:
         world_z = np.array([0, 0, 1])
         z_dot_product = np.dot(hoop_z, world_z)
 
-        pose._p[2] -= 0.02 * np.abs(z_dot_product)
+        pose._p[2] -= Z_OFFSET * np.abs(z_dot_product)
         # pose._p[2] -= 0.05
         
         # Skip if Z position is too low
@@ -161,8 +162,8 @@ class StateSpace:
         # Load waypoints
         waypoints = json.load(open(waypoints_path, "r"))
         
-        # remove last waypoint that is in the base
-        waypoints = waypoints[:-1] 
+        # remove last n waypoints that is in the base
+        waypoints = waypoints[:-2] 
         
         self._waypoints = waypoints
         self._num_angle_samples = num_angle_samples
@@ -317,7 +318,6 @@ class StateSpace:
                     heapq.heappush(priority_queue, (new_cost, wp_idx, ang_idx, tilt_roll_delta, tilt_pitch_delta, q_tuple))
 
         # Initialize: start from all valid states in first column (waypoint_idx=0)
-        print(f"[FIRST_COLUMN] Trying first column with 0° tilt...")
         zero_tilt_total_solutions = 0
         for angle_idx in range(grid_count_y):
             viable_sols = self._get_ik_solutions(0, angle_idx, test_robot, 0.0, 0.0)
@@ -334,13 +334,11 @@ class StateSpace:
                 # Start states have no parent
                 parents[q_tuple] = (None, 0, angle_idx, 0.0, 0.0)
                 heapq.heappush(priority_queue, (0.0, 0, angle_idx, 0.0, 0.0, q_tuple))
-        print(f"[FIRST_COLUMN] Found {zero_tilt_total_solutions} solutions with 0° tilt")
         
         #TODO maybe continue even if we found valid start states, would speed it up but risks failing to find a solution
         if zero_tilt_total_solutions == 0:
             # Try each tilt angle progressively
             for idx, tilt_angle_deg in enumerate(tilt_angles_deg):
-                print(f"[FIRST_COLUMN] Trying first column with {tilt_angle_deg:.1f}° tilt...")
                 
                 tilt_angle_valid_states = 0
                 for angle_idx in range(grid_count_y):
@@ -379,12 +377,11 @@ class StateSpace:
                             heapq.heappush(priority_queue, (start_cost, 0, angle_idx, tilt_roll_delta, tilt_pitch_delta, q_tuple))
                             tilt_angle_valid_states += 1
                 
-                print(f"[FIRST_COLUMN] Found {tilt_angle_valid_states} valid states with {tilt_angle_deg:.1f}° tilt")
                 
                 # Stop once we find valid start states (prefer lower tilt angles due to penalties)
                 # TODO maybe terminate, but then sometimes fails
                 if tilt_angle_valid_states > 0:
-                    print(f"[FIRST_COLUMN] Found valid start states at {tilt_angle_deg:.1f}° tilt")
+                    pass
                     #break
             
         # Track the best goal state (lowest cost to reach final waypoint)

@@ -128,7 +128,7 @@
     <visual>
       <origin xyz="0 0 0.135" rpy="0 0 0" />
       <geometry>
-        <box size="0.1 0.13 0.27" />
+        <box size="0.1 0.15 0.27" />
       </geometry>
       <material name="arm4_mat">
         <color rgba="0.5 0.5 0.5 1.0" />
@@ -137,7 +137,7 @@
     <collision>
       <origin xyz="0 0 0.135" rpy="0 0 0" />
       <geometry>
-        <box size="0.1 0.13 0.27" />
+        <box size="0.1 0.15 0.27" />
       </geometry>
     </collision>
   </link>

@@ -55,6 +55,8 @@ class PybulletRobot(CRSRobot):
 
         # Load ground plane (provides a floor for the simulation)
         bullet_client.loadURDF("plane.urdf")
+        # offset the plane slightly up to iprove collision detection stability
+        bullet_client.resetBasePositionAndOrientation(0, [0, 0, 0.01], [0, 0, 0, 1])
 
         # Load robot model from URDF file and set base position and orientation
         # (offset it as in real life the floor is above the z=0 plane)

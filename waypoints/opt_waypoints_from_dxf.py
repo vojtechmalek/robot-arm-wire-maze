@@ -7,9 +7,9 @@ import utils
 # CONFIG
 ################################
 
-MAZE = "E"
-DXF_FILE = f"dxf_paths/{MAZE}_path.dxf"        # your DXF
-OUTPUT_FILE = "opt_waypoint_paths/waypoints_E.json"      # output JSON, working file
+MAZE = "D"
+DXF_FILE = f"waypoints/dxf_paths/{MAZE}_path.dxf"        # your DXF
+OUTPUT_FILE = "waypoints/opt_waypoint_paths/waypoints_D.json"      # output JSON, working file
 TOOL_AXIS = 'X'                       # which tool axis should align with path tangent
 UNIT_SCALE = 0.001                    # DXF usualy mm -> convert to m
 WORLD_UP = np.array([0, 0, 1.0])      # reference "up" to stabilize roll
@@ -28,7 +28,7 @@ GUIDE_OFFSET = 0.08                 # offset in -maze-direction before the maze 
 HORIZONTAL_GUIDE_OFFSET = 0.12      # extra +Z offset for horizontal starts to prevent colision
 TWO_POINTS_DIST_TRESHOLD = 0.02     # minimal distance between two final waypoints to account for interpolation problems
 HORIZONTAL_START = True if MAZE == "E" or MAZE == "D" else False # True if you maze has a horizontal section at the start and in not D or E
-
+SMOOTHING_FACTOR = 4     # smoothin_factor*2 +1 = window lenght, whis window is used to smooth out rotation in sharp corners
 
 ################################
 # DXF GEOMETRY HANDLING
@@ -336,14 +336,12 @@ def main():
 
     # 5. build waypoints with smooth, continuous orientation
     waypoints = []
-    R_prev = None
-    # smoothin_factor*2 +1 = window lenght, whis window is used to smooth out rotation in sharp corners
-    smoothing_factor = 1  
+    R_prev = None 
 
     for i in range(len(path_pts)):
         # tangent estimate like before
-        i_a = max(i - smoothing_factor, 0)
-        i_b = min(i + smoothing_factor, len(path_pts) - 1)
+        i_a = max(i - SMOOTHING_FACTOR, 0)
+        i_b = min(i + SMOOTHING_FACTOR, len(path_pts) - 1)
         p_a = path_pts[i_a]
         p_b = path_pts[i_b]
         tangent = p_b - p_a
@@ -384,19 +382,21 @@ def main():
 
             if HORIZONTAL_START:
                 idx_shift += 1
-                p_horizontal_shifted = utils.move_up_along_z(p_shifted, R_tool_world, distance=GUIDE_OFFSET)
+                p_horizontal_shifted = utils.move_up_along_z(p_shifted, R_tool_world, distance=HORIZONTAL_GUIDE_OFFSET)
                 waypoints.append({
                     "pos": p_horizontal_shifted.tolist(),
                     "rpy": [float(rpy[0]), float(rpy[1]), float(rpy[2])],
                     "mat": mat_flat,
-                    "idx": int(i)
+                    "idx": int(i),
+                    "collision": False
                 })
 
             waypoints.append({
                 "pos": p_shifted.tolist(),
                 "rpy": [float(rpy[0]), float(rpy[1]), float(rpy[2])],
                 "mat": mat_flat,
-                "idx": int(i)
+                "idx": int(i),
+                "collision": False
             })
 
         # compress if last two mats equal to current mat == colinear points
@@ -416,7 +416,8 @@ def main():
             "pos": p_curr_offset.tolist(),
             "rpy": [float(rpy[0]), float(rpy[1]), float(rpy[2])],
             "mat": mat_flat,
-            "idx": int(i) + idx_shift
+            "idx": int(i) + idx_shift,
+            "collision": True
         })
 
     # last point, reuse last orientation — also run the same compression logic
@@ -438,7 +439,8 @@ def main():
         "pos": p_last_offset.tolist(),
         "rpy": rpy_last,
         "mat": mat_last,
-        "idx": len(path_pts) - 1
+        "idx": len(path_pts) - 1,
+        "collision": True
     })
 
 
