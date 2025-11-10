@@ -219,18 +219,18 @@
       <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0" />
     </inertial>
     <visual>
-      <origin xyz="0.0337 0 0.003" rpy="0 0 0" />
+      <origin xyz="0.05 0 0.003" rpy="0 0 0" />
       <geometry>
-        <box size="0.068 0.01 0.006" />
+        <box size="0.1 0.01 0.007" />
       </geometry>
       <material name="ee_mat">
         <color rgba="0.2 0.2 0.2 1.0" />
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0337 0 0.003" rpy="0 0 0" />
+      <origin xyz="0.05 0 0.003" rpy="0 0 0" />
       <geometry>
-        <box size="0.068 0.01 0.006" />
+        <box size="0.1 0.01 0.006" />
       </geometry>
     </collision>
   </link>
@@ -258,7 +258,7 @@
     <visual>
       <origin xyz="0 0 0.003" rpy="0 0 0" />
       <geometry>
-        <cylinder radius="0.06" length="0.006" />
+        <cylinder radius="0.0348" length="0.006" />
       </geometry>
       <material name="hoop_mat">
         <color rgba="1.0 0.84 0.0 1.0" />

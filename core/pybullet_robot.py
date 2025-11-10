@@ -11,7 +11,6 @@ import numpy as np
 import threading
 import inspect
 from .pose import Pose
-from typing import Optional
 from .state_space import StateSpace
 
 
@@ -24,7 +23,8 @@ class PybulletRobot(CRSRobot):
     ####################################################################################################################
     def __init__(self, maze: str,
                  maze_pose: Pose,
-                 use_gui: bool = False):
+                 use_gui: bool = False,
+                 collision_padding: float = 0.0):
         """
         Initialize PyBullet robot simulation.
         """
@@ -33,6 +33,7 @@ class PybulletRobot(CRSRobot):
         self._maze = maze
         self._maze_pose = maze_pose
         self._use_gui = use_gui
+        self._collision_padding = collision_padding
 
         # Initialize parent CRSRobot class
         # CRSRobot expects a serial device (tty_dev) and baud rate, but we pass None since this is simulation-only
@@ -67,6 +68,16 @@ class PybulletRobot(CRSRobot):
         maze_yaw = self._maze_pose.rpy[2] + np.pi/2  # Add 90° offset to match URDF coordinate frame orientation
         object_rot = bullet_client.getQuaternionFromEuler([0, 0, maze_yaw])  # Convert Euler angles to quaternion
         self._maze_urdf = bullet_client.loadURDF(maze_urdf, object_pos, object_rot, flags=p.URDF_USE_MATERIAL_COLORS_FROM_MTL)
+        
+        # Set collision margin/padding if specified
+        if collision_padding > 0:
+            # Set collision margin for all links in robot
+            num_robot_joints = bullet_client.getNumJoints(self._robot_urdf)
+            for i in range(-1, num_robot_joints):  # -1 is base link
+                bullet_client.changeDynamics(self._robot_urdf, i, collisionMargin=collision_padding)
+            
+            # Set collision margin for maze (link index -1 is base link)
+            bullet_client.changeDynamics(self._maze_urdf, -1, collisionMargin=collision_padding)
 
         # Configure physics simulation
         # Set gravity to zero (robot and maze are static, no need for gravity)
@@ -142,7 +153,9 @@ class PybulletRobot(CRSRobot):
     ####################################################################################################################
     
     def step_simulation(self):
-        """Manually step the simulation (only needed if auto_step=False)."""
+        """
+        Manually step the simulation.
+        """
         self._bullet_client.stepSimulation()
 
     ####################################################################################################################
@@ -150,12 +163,16 @@ class PybulletRobot(CRSRobot):
     ####################################################################################################################
     
     def is_colliding_with_maze(self) -> bool:
-        """Check if robot is colliding with maze."""
+        """
+        Check if robot is currently colliding with maze.
+        """
         contacts = self._bullet_client.getContactPoints(bodyA=self._robot_urdf, bodyB=self._maze_urdf)
         return len(contacts) > 0
     
     def is_path_colliding_with_maze(self, start_q: np.ndarray, end_q: np.ndarray, num_steps: int = 10) -> bool:
-        """Check if collision occurs along a path."""
+        """
+        Check if collision occurs along a path.
+        """
         for i in range(num_steps):
             t = i / (num_steps - 1)
             q = start_q * (1 - t) + end_q * t
@@ -165,6 +182,7 @@ class PybulletRobot(CRSRobot):
                 return True
         return False   
     
+    # TODO: following two functions are not used anymore, remove them unless needed
     def get_robot_to_maze_distance(self) -> float:
         """Get the minimum distance between robot and maze."""
         points = self._bullet_client.getClosestPoints(bodyA=self._robot_urdf, bodyB=self._maze_urdf, distance=100.0)
@@ -186,6 +204,18 @@ class PybulletRobot(CRSRobot):
                 min_distance = distance
         return min_distance
     
+    def interpolate_between_qs(self, q_start: np.ndarray, q_end: np.ndarray, num_steps: int = 10) -> list[np.ndarray]:
+        """
+        Interpolate between two joint configurations with a specified number of steps.
+        """
+        interpolated = []
+        for i in range(num_steps + 1):
+            t = i / num_steps
+            q_interp = q_start * (1 - t) + q_end * t
+            interpolated.append(q_interp)
+        
+        return interpolated
+    
     ####################################################################################################################
     # STATE SPACE
     ####################################################################################################################
@@ -197,22 +227,9 @@ class PybulletRobot(CRSRobot):
         """
         return self._state_space
     
-    def calculate_state_space(self,
-                              num_angle_samples: int = 8,
-                              step: int = 1,
-                              ):
-        """
-        Calculate the state space matrix
-        """ 
-        self.state_space.calculate(
-            waypoints_path=f"waypoints/opt_waypoint_paths/waypoints_{self._maze}.json",
-            num_angle_samples=num_angle_samples,
-            step=step,
-            use_separate_simulation=self._use_gui
-        )
-    
     def visualize_state_space(self) -> None:
-        """se_separate_simulation: bool = True of the state space.
+        """
+        Display an interactive visualization of the pathfinding cost space.
         Clicking or dragging on the plot will move the robot to that configuration.
         """
         self.state_space.visualize()
@@ -221,9 +238,19 @@ class PybulletRobot(CRSRobot):
     # PATH PLANNING
     ####################################################################################################################
 
-    def get_q_path(self):
-        """Get a joint-space path through the maze from start to goal."""        
-        return self.state_space.find_path()
+    def find_path(self, num_angle_samples: int = 8, step: int = 1,
+                   max_tilt_angle: float = 15.0, num_tilt_directions: int = 4):
+        """
+        Find a path through the maze from start to goal.
+        """        
+        return self.state_space.find_path(
+            waypoints_path=f"waypoints/opt_waypoint_paths/waypoints_{self._maze}.json",
+            num_angle_samples=num_angle_samples,
+            step=step,
+            collision_padding=self._collision_padding,
+            max_tilt_angle=max_tilt_angle,
+            num_tilt_directions=num_tilt_directions
+        )
         
     ####################################################################################################################
     # CLEANUP
@@ -236,94 +263,3 @@ class PybulletRobot(CRSRobot):
             self._sim_thread.join()
         if self._bullet_client is not None:
             self._bullet_client.disconnect()
-
-    #####################################################################################################################
-    # INVERSE KINEMATICS (OVERRIDE)
-    #####################################################################################################################
-    def ik(self, pose: np.ndarray) -> list[np.ndarray]:
-        """Compute inverse kinematics for the given pose. Returns array of joint
-        configurations [rad] which can achieve the given pose.
-        Args:
-            pose: 4x4 homogeneous transformation matrix (SE3) of the flange with respect to the base of the robot.
-        """
-
-        # X=A01*A12*A23 * [0 0 0 1]' because A34*A45*A57==R34*R45*R56 is pure rotation
-        flange_pos = pose @ np.array([0, 0, -self.dh_d[5], 1])
-        sols_q_03 = self._ik_flange_pos(flange_pos)
-
-        singularity_theta4 = 0
-
-        sols = []
-        for q_03 in sols_q_03:
-            rot_03 = self.fk(q_03)[:3, :3]
-            rot_36 = rot_03.T @ pose[:3, :3]
-
-            # Euler Z - Y Z for joints 4, 5, 6
-            P = rot_36
-            if np.isclose(P[2][2], 1):  # np.cos(theta5) == 1
-                sols.append(
-                    np.concatenate(
-                        [
-                            q_03,
-                            [
-                                singularity_theta4,
-                                0,
-                                np.arctan2(P[1][0], P[0][0]) - singularity_theta4,
-                            ],
-                        ]
-                    )
-                )
-            elif np.isclose(P[2][2], -1):  # np.cos(theta5) == -1
-                sols.append(
-                    np.concatenate(
-                        [
-                            q_03,
-                            [
-                                singularity_theta4,
-                                np.pi,
-                                np.arctan2(P[1][0], -P[0][0]) + singularity_theta4,
-                            ],
-                        ]
-                    )
-                )
-            else:  # non - degenerate
-                theta5 = np.arccos(P[2][2])
-                sols.append(
-                    np.concatenate(
-                        [
-                            q_03,
-                            [
-                                np.arctan2(
-                                    P[1][2] * np.sign(np.sin(theta5)),
-                                    P[0][2] * np.sign(np.sin(theta5)),
-                                ),
-                                -theta5,
-                                np.arctan2(
-                                    P[2][1] * np.sign(np.sin(theta5)),
-                                    -P[2][0] * np.sign(np.sin(theta5)),
-                                ),
-                            ],
-                        ]
-                    )
-                )
-                sols.append(
-                    np.concatenate(
-                        [
-                            q_03,
-                            [
-                                np.arctan2(
-                                    P[1][2] * np.sign(np.sin(-theta5)),
-                                    P[0][2] * np.sign(np.sin(-theta5)),
-                                ),
-                                theta5,
-                                np.arctan2(
-                                    P[2][1] * np.sign(np.sin(-theta5)),
-                                    -P[2][0] * np.sign(np.sin(-theta5)),
-                                ),
-                            ],
-                        ]
-                    )
-                )
-        # np.random.shuffle(sols)
-        return sols
-
