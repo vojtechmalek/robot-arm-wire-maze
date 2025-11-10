@@ -8,14 +8,14 @@ maze = "E"
 local_mode = True
 use_gui = True
 
-NUM_ANGLE_SAMPLES = 32
+NUM_ANGLE_SAMPLES = 20
 STEP = 1
-COLLISION_PADDING = 0.0  # Minimum distance to consider as collision (meters)
-MAX_TILT_ANGLE = 45  # Maximum tilt angle to try (degrees)
-NUM_TILT_DIRECTIONS = 8  # Number of tilt directions (4 = cardinal, 8 = cardinal + diagonal)
+COLLISION_PADDING = 0.02  # Minimum distance to consider as collision (meters)
+MAX_TILT_ANGLE = 40  # Maximum tilt angle to try (degrees)
+NUM_TILT_DIRECTIONS = 4  # Number of tilt directions (4 = cardinal, 8 = cardinal + diagonal)
 
 if local_mode:
-    aruco_img = cv2.imread("aruco_images/aruco_5.png")
+    aruco_img = cv2.imread("aruco_images/aruco_12.png")
 else:
     robot = CRS97()
     robot.initialize(home=False)  # initialize connection to the robot, perform hard and soft home
@@ -44,7 +44,7 @@ if use_gui:
     # Visualize state space (interactive plot)
     print("[MAIN] Opening interactive state space visualization...")
     print("[MAIN] Click or drag on the plot to move the robot to different configurations.")
-    pybullet_robot.visualize_state_space()
+    pybullet_robot.visualize_state_space(viz_0_tilt=True)
 
 
 if not local_mode and q_path is not None and len(q_path) > 0:

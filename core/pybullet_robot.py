@@ -227,12 +227,15 @@ class PybulletRobot(CRSRobot):
         """
         return self._state_space
     
-    def visualize_state_space(self) -> None:
+    def visualize_state_space(self, viz_0_tilt: bool = False) -> None:
         """
         Display an interactive visualization of the pathfinding cost space.
         Clicking or dragging on the plot will move the robot to that configuration.
+        
+        Args:
+            viz_0_tilt: If True, visualize distance grid for 0° tilt instead of cost grid.
         """
-        self.state_space.visualize()
+        self.state_space.visualize(viz_0_tilt=viz_0_tilt)
 
     ####################################################################################################################
     # PATH PLANNING

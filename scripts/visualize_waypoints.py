@@ -9,9 +9,8 @@ import json
 from core import utils
 
 
-waypoints_raw = json.load(open("waypoints/waypoints_new_E.json", "r"))
+waypoints_raw = json.load(open("waypoints/opt_waypoint_paths/waypoints_E.json", "r"))
 # use only every nth waypoint for clarity
-waypoints_raw = waypoints_raw[::20]
 
 
 # use matplotlib to visualize waypoints in 3D

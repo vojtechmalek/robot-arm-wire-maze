@@ -22,12 +22,12 @@ if TYPE_CHECKING:
 GROUND_LIMIT = 0.05  # meters
 
 TILT_INCREMENT = 5.0  # degrees
-MAX_JOINT_CHANGE = np.deg2rad(45)  # Maximum allowed joint change per step (per joint)
+MAX_JOINT_CHANGE = np.deg2rad(90)  # Maximum allowed joint change per step (per joint)
         
 
 # Tilt penalty configuration
-TILT_BASE_PENALTY = 3.0  # Base penalty for any non-zero tilt
-TILT_INCREMENTAL_PENALTY = 3.0  # Additional penalty per 5° increment beyond base
+TILT_BASE_PENALTY = 5.0  # Base penalty for any non-zero tilt
+TILT_INCREMENTAL_PENALTY = 5.0  # Additional penalty per 5° increment beyond base
 
 
 ################################################################################################################
@@ -49,7 +49,7 @@ def state_transition_cost(old_q: np.ndarray, new_q: np.ndarray,
     tilt_deg = np.rad2deg(np.sqrt(new_tilt_roll**2 + new_tilt_pitch**2))
     if tilt_deg > 1e-6:  # Destination state is tilted
         increments = int(np.ceil(tilt_deg / TILT_INCREMENT))
-        tilt_penalty = 1.0 + increments  # Base 1 + increment level
+        tilt_penalty = TILT_BASE_PENALTY + increments * TILT_INCREMENTAL_PENALTY  # Base 1 + increment level
     
     return step_cost + tilt_penalty
 
@@ -137,7 +137,6 @@ class StateSpace:
             if not test_robot.is_colliding_with_maze():
                 viable_solutions.append(ik_sol)
         
-        # Store and return viable solutions
         self._ik_solutions[cache_key] = viable_solutions
         return viable_solutions
 
@@ -353,7 +352,8 @@ class StateSpace:
                         
                         # Start states: no transition penalty (they're initial states, not transitions)
                         # No state penalty either - we only penalize entering tilted states via transitions
-                        start_cost = 0.0
+                        zero_q = np.array([0, 0, 0, 0, 0, 0]) #TODO temrporary for 0 q penalty
+                        start_cost = state_transition_cost(zero_q, zero_q, tilt_roll_delta, tilt_pitch_delta)
                         
                         # Try all IK solutions
                         for ik_solution_idx in range(len(viable_sols)):
@@ -579,6 +579,53 @@ class StateSpace:
     # VISUALIZATION
     ################################################################################################################
     
+    def _calculate_distance_grid_0_tilt(self) -> np.ndarray:
+        """
+        Calculate distance from maze for all possible x and y combinations at 0 tilt.
+        Returns a grid where each cell contains the minimum distance across all IK solutions.
+        """
+        if self._ik_solutions is None or self._waypoints is None:
+            raise ValueError("State space not calculated. Run find_path() first.")
+        
+        grid_count_x = len(self._waypoints)
+        grid_count_y = self._num_angle_samples
+        distance_grid = np.zeros((grid_count_y, grid_count_x))
+        
+        # Create a test robot for distance calculations if we're in GUI mode
+        if self._robot._use_gui and self._robot._bullet_client.isConnected():
+            from .pybullet_robot import PybulletRobot
+            test_robot = PybulletRobot(maze=self._maze, maze_pose=self._maze_pose, use_gui=False, collision_padding=0.0)
+            created_separate_sim = True
+        else:
+            test_robot = self._robot
+            created_separate_sim = False
+        
+        try:
+            print("Calculating distance grid for 0° tilt...")
+            for iy in range(grid_count_y):
+                for ix in range(grid_count_x):
+                    # Get IK solutions for this position (computes on the fly if not cached)
+                    viable_sols = self._get_ik_solutions(ix, iy, test_robot, 0.0, 0.0)
+                    
+                    if viable_sols is None or len(viable_sols) == 0:
+                        distance_grid[iy, ix] = -0.05
+                    else:
+                        # Use the smallest distance across all IK solutions
+                        smallest_distance = float('inf')
+                        for ik_sol in viable_sols:
+                            test_robot._set_q(ik_sol)
+                            test_robot.step_simulation()
+                            distance = test_robot.get_robot_to_maze_distance()
+                            if distance < smallest_distance:
+                                smallest_distance = distance
+                        distance_grid[iy, ix] = smallest_distance
+        finally:
+            if created_separate_sim:
+                test_robot.close()
+        
+        print("Distance grid calculation complete.")
+        return distance_grid
+    
     def play_path(self, num_steps_per_segment: int = 10, delay: float = 0.05) -> None:
         """
         Play the path by smoothly interpolating between waypoints.
@@ -605,10 +652,13 @@ class StateSpace:
         
         print("Path playback complete.")
     
-    def visualize(self) -> None:
+    def visualize(self, viz_0_tilt: bool = False) -> None:
         """
         Display an interactive visualization of the pathfinding cost space.
         Clicking or dragging on the plot will move the robot to that configuration.
+        
+        Args:
+            viz_0_tilt: If True, visualize distance grid for 0° tilt instead of cost grid.
         """
         if self._ik_solutions is None or self._waypoints is None:
             raise ValueError("State space not calculated. Run find_path() first.")
@@ -618,27 +668,75 @@ class StateSpace:
         grid_count_y = self._num_angle_samples
         extent = [0, 1, 0, 360]  # x_min, x_max, y_min, y_max
         
-        # Compute cost grid from pathfinding
-        cost_grid = np.full((grid_count_y, grid_count_x), np.nan)
-        has_cost_data = self._visited_costs is not None and self._best_ik_at_position is not None
-        if has_cost_data:
-            for iy in range(grid_count_y):
-                for ix in range(grid_count_x):
-                    key = (ix, iy)
-                    if key in self._best_ik_at_position:
-                        q_tuple, cost = self._best_ik_at_position[key]
-                        cost_grid[iy, ix] = cost
+        # Compute visualization grids
+        if viz_0_tilt:
+            # Calculate distance grid for 0° tilt (background)
+            distance_grid = self._calculate_distance_grid_0_tilt()
+            
+            # Compute cost grid from pathfinding (overlay)
+            cost_grid = np.full((grid_count_y, grid_count_x), np.nan)
+            has_cost_data = self._visited_costs is not None and self._best_ik_at_position is not None
+            if has_cost_data:
+                for iy in range(grid_count_y):
+                    for ix in range(grid_count_x):
+                        key = (ix, iy)
+                        if key in self._best_ik_at_position:
+                            q_tuple, cost = self._best_ik_at_position[key]
+                            cost_grid[iy, ix] = cost
+            
+        else:
+            # Compute cost grid from pathfinding only
+            distance_grid = None
+            cost_grid = np.full((grid_count_y, grid_count_x), np.nan)
+            has_cost_data = self._visited_costs is not None and self._best_ik_at_position is not None
+            if has_cost_data:
+                for iy in range(grid_count_y):
+                    for ix in range(grid_count_x):
+                        key = (ix, iy)
+                        if key in self._best_ik_at_position:
+                            q_tuple, cost = self._best_ik_at_position[key]
+                            cost_grid[iy, ix] = cost
+        
+        # Keep original title
+        grid_title = "Visited Valid States (at 0° tilt)"
         
         # Create visualization
         fig, ax = plt.subplots()
+        fig.patch.set_facecolor('white')
+        ax.set_facecolor('white')
         plt.subplots_adjust(bottom=0.15)  # Make room for button
-        img = ax.imshow(cost_grid, cmap="plasma", interpolation="nearest", extent=extent, origin="lower", aspect="auto")
+        
+        # Track colorbar positions to avoid overlap
+        # This will be used later for positioning the tilt colorbar
+        colorbar_pad = 0.02
+        
+        # Show distance grid as background if available (without colorbar)
+        if viz_0_tilt and distance_grid is not None:
+            # Mask invalid distances (where value is -0.05) so they appear white
+            distance_grid_masked = np.ma.masked_where(distance_grid < 0, distance_grid)
+            img_bg = ax.imshow(distance_grid_masked, cmap="viridis", interpolation="nearest", 
+                              extent=extent, origin="lower", aspect="auto", alpha=0.6)
+            # No colorbar for distance grid
+        
+        # Show cost grid as overlay (takes priority)
+        if np.any(~np.isnan(cost_grid)):
+            img_overlay = ax.imshow(cost_grid, cmap="plasma", interpolation="nearest", 
+                                   extent=extent, origin="lower", aspect="auto", alpha=0.8)
+            # Always show cost colorbar
+            cbar_overlay = plt.colorbar(img_overlay, ax=ax, label="Path Cost")
+            # When showing cost, tilt colorbar should be after it
+            colorbar_pad = 0.15
+        elif not viz_0_tilt:
+            # Fallback: show empty grid if no cost data and not showing distance
+            empty_grid = np.full((grid_count_y, grid_count_x), np.nan)
+            ax.imshow(empty_grid, cmap="plasma", interpolation="nearest", 
+                     extent=extent, origin="lower", aspect="auto")
+        
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 360)
         ax.set_xlabel("Path Progress (normalized)")
         ax.set_ylabel("Angle Offset (degrees)")
-        ax.set_title("Visited Valid States (at 0° tilt)")
-        plt.colorbar(img, ax=ax, label="Path Cost")
+        ax.set_title(grid_title)
         
         # Add Play Path button
         ax_button = plt.axes([0.4, 0.02, 0.2, 0.05])
@@ -771,8 +869,12 @@ class StateSpace:
                                cmap='viridis', vmin=0, vmax=max_tilt, label='Path')
             
             # Add colorbar for tilt magnitude
-            cbar = plt.colorbar(scatter, ax=ax)
-            cbar.set_label('Tilt Magnitude (degrees)', rotation=270, labelpad=15)
+            # Position it after other colorbars if viz_0_tilt is enabled
+            if viz_0_tilt:
+                cbar_tilt = plt.colorbar(scatter, ax=ax, pad=colorbar_pad)
+            else:
+                cbar_tilt = plt.colorbar(scatter, ax=ax)
+            cbar_tilt.set_label('Tilt Magnitude (degrees)', rotation=270, labelpad=15)
             
             ax.legend()
         
