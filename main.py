@@ -4,10 +4,11 @@ from core import PybulletRobot, base_detection
 from time import sleep
 import cProfile
 
+from detection.detect_maze import get_maze_type
+
     
 # Configuration
-maze = "E"
-local_mode = False
+local_mode = True
 use_gui = False
 
 NUM_ANGLE_SAMPLES = 30
@@ -24,6 +25,11 @@ else:
     robot.move_to_q(robot.q_home)
     robot.wait_for_motion_stop()
     aruco_img = robot.grab_image()
+
+maze = get_maze_type(aruco_img)
+if maze is None or maze == "NONE":
+    print(f"[MAIN] Could not detect maze type from image, what maze is this?")
+    maze = input("Enter maze type (A, B, C, D, E): ").strip().upper()
 
 # detect maze position from image
 print("[MAIN] Detecting maze position from image...")
