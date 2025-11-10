@@ -7,20 +7,27 @@ import utils
 # CONFIG
 ################################
 
-DXF_FILE = "dxf_paths/E_path.dxf"        # your DXF
+MAZE = "E"
+DXF_FILE = f"dxf_paths/{MAZE}_path.dxf"        # your DXF
 OUTPUT_FILE = "opt_waypoint_paths/waypoints_E.json"      # output JSON, working file
-RESAMPLE_STEP = 0.005                 # 1 mm in meters
-UNIT_SCALE = 0.001                    # DXF usualy mm -> convert to m
 TOOL_AXIS = 'X'                       # which tool axis should align with path tangent
+UNIT_SCALE = 0.001                    # DXF usualy mm -> convert to m
 WORLD_UP = np.array([0, 0, 1.0])      # reference "up" to stabilize roll
 
-# offset because model path can be on models edge
-OFFSET_X = -0.005   # meters
-OFFSET_Y = -0.005  # meters
-OFFSET_Z = 0.000   # meters
+#################### Constants that tweak waypoint generation, all in meters ####################
 
-GUIDE_OFFSET = 0.03 # Offest before the maze start to prevent colision
-TWO_POINTS_DIST_TRESHOLD = 0.02 # minimal distance between two final waypoints to account for interpolation problems
+RESAMPLE_STEP = 0.005               # step between points when sampling freshly extracted path
+
+# offset because model path can be on models edge
+OFFSET_X = 0.000                    # use if your dxf is off in X axis from origin, in meters
+OFFSET_Y = 0.000                    # use if your dxf is off in Y axis from origin, in meters
+OFFSET_Z = 0.000                    # use if your dxf is off in Z axis from origin, in meters
+
+# optimalization of the path, safety guide offset and deletion of collinear waypoints
+GUIDE_OFFSET = 0.08                 # offset in -maze-direction before the maze start to prevent colision
+HORIZONTAL_GUIDE_OFFSET = 0.12      # extra +Z offset for horizontal starts to prevent colision
+TWO_POINTS_DIST_TRESHOLD = 0.02     # minimal distance between two final waypoints to account for interpolation problems
+HORIZONTAL_START = True if MAZE == "E" or MAZE == "D" else False # True if you maze has a horizontal section at the start and in not D or E
 
 
 ################################
@@ -28,17 +35,19 @@ TWO_POINTS_DIST_TRESHOLD = 0.02 # minimal distance between two final waypoints t
 ################################
 
 
-def extract_ordered_path_points(dxf_doc):
+import numpy as np
+
+def extract_ordered_path_points(dxf_doc, tol=1e-6):
     """
-    Collect all path-like geometry (LINE, LWPOLYLINE, POLYLINE, SPLINE),
-    then stitch into one ordered path.
-    Returns Nx3 in original DXF units.
+    Extracts polylines/lines/splines and stitches them into one ordered path
+    using endpoint-node grouping + graph walk to guarantee correct orientation.
+    tol: distance tolerance to consider two endpoints identical.
+    Returns Nx3 numpy array in original DXF units.
     """
     msp = dxf_doc.modelspace()
-
     polylines = []
 
-    # LWPOLYLINE (often 2D, with optional elevation)
+    # collect geometry
     for e in msp.query("LWPOLYLINE"):
         elevation = getattr(e.dxf, "elevation", 0.0)
         pts = []
@@ -47,25 +56,22 @@ def extract_ordered_path_points(dxf_doc):
             z = elevation
             pts.append([x, y, z])
         if len(pts) > 1:
-            polylines.append(np.array(pts))
+            polylines.append(np.array(pts, dtype=float))
 
-    # 3D POLYLINE
     for e in msp.query("POLYLINE"):
         pts = []
         for v in e.vertices:
             x, y, z = v.dxf.location.xyz
             pts.append([x, y, z])
         if len(pts) > 1:
-            polylines.append(np.array(pts))
+            polylines.append(np.array(pts, dtype=float))
 
-    # SPLINE (sample it densely to get approx points)
     for e in msp.query("SPLINE"):
-        spline_pts = e.approximate(200)  # list of (x,y,z)
-        pts = np.array(spline_pts)
+        spline_pts = e.approximate(200)
+        pts = np.array(spline_pts, dtype=float)
         if len(pts) > 1:
             polylines.append(pts)
 
-    # LINE segments (each will be its own tiny 2-point polyline)
     for e in msp.query("LINE"):
         p0 = np.array(e.dxf.start, dtype=float)
         p1 = np.array(e.dxf.end, dtype=float)
@@ -75,40 +81,105 @@ def extract_ordered_path_points(dxf_doc):
     if not polylines:
         raise RuntimeError("No usable path entities found.")
 
-    # Now stitch all polylines into one long ordered chain.
-    unused = polylines[:]
-    current = unused.pop(0)
-    ordered = [p for p in current]
+    nodes = []          # list of representative 3D points for nodes
+    seg_end_nodes = []  # for each segment, tuple (node_idx_start, node_idx_end)
 
-    while unused:
-        last_point = ordered[-1]
-        best_i = None
-        best_flip = False
-        best_dist = 1e9
+    def find_or_add_node(pt):
+        """Return node index for pt, creating new node if none within tol."""
+        for i, n in enumerate(nodes):
+            if np.linalg.norm(n - pt) <= tol:
+                return i
+        nodes.append(pt.copy())
+        return len(nodes) - 1
 
-        for i, pl in enumerate(unused):
-            start_dist = np.linalg.norm(pl[0]  - last_point)
-            end_dist   = np.linalg.norm(pl[-1] - last_point)
+    for seg in polylines:
+        start = seg[0].astype(float)
+        end = seg[-1].astype(float)
+        si = find_or_add_node(start)
+        ei = find_or_add_node(end)
+        seg_end_nodes.append((si, ei))
 
-            # pick whichever end is closer to continue the chain
-            if start_dist < best_dist:
-                best_dist = start_dist
-                best_i = i
-                best_flip = False  # keep forward
-            if end_dist < best_dist:
-                best_dist = end_dist
-                best_i = i
-                best_flip = True   # reverse this segment
+    adjacency = {i: [] for i in range(len(nodes))}
+    for s_idx, (si, ei) in enumerate(seg_end_nodes):
+        adjacency[si].append((s_idx, True))
+        adjacency[ei].append((s_idx, False))
 
-        seg = unused.pop(best_i)
-        if best_flip:
-            seg = np.flip(seg, axis=0)
+    # find start node: prefer a node with degree 1 (open path).
+    start_node = None
+    for n, neigh in adjacency.items():
+        if len(neigh) == 1:
+            start_node = n
+            break
+    if start_node is None:
+        start_node = 0
 
-        # Avoid duplicating the connection point
-        for p in seg[1:]:
-            ordered.append(p)
+    used_seg = [False] * len(polylines)
+    ordered_pts = []
 
-    pts_all = np.array(ordered, dtype=float)  # Nx3, still in DXF units
+    cur_node = start_node
+    prev_node = None
+
+    # If start_node has degree > 0, determine the first segment to take.
+    while True:
+        choices = [(s_idx, orient) for (s_idx, orient) in adjacency[cur_node] if not used_seg[s_idx]]
+
+        if not choices:
+            break
+        seg_idx, orient_at_node = choices[0]
+
+        seg = polylines[seg_idx]
+        forward = orient_at_node  # True => seg is already in forward orientation relative to cur_node
+
+        used_seg[seg_idx] = True
+
+        # produce points in the correct orientation
+        if forward:
+            pts_to_add = seg.copy()
+            next_node = seg_end_nodes[seg_idx][1]  # end node
+        else:
+            pts_to_add = np.flip(seg, axis=0).copy()
+            next_node = seg_end_nodes[seg_idx][0]  # after flipping, previous end becomes start, next is original start
+
+        # append points avoiding duplication at junction
+        if not ordered_pts:
+            for p in pts_to_add:
+                ordered_pts.append(p)
+        else:
+            for p in pts_to_add[1:]:
+                ordered_pts.append(p)
+
+        prev_node = cur_node
+        cur_node = next_node
+
+        # Continue until all segments used
+        if all(used_seg):
+            break
+
+    # If some segments remain unused (e.g., graph had branches), attempt to stitch remaining components
+    if not all(used_seg):
+        for seg_idx, used in enumerate(used_seg):
+            if not used:
+                si, ei = seg_end_nodes[seg_idx]
+                # representative points
+                rep_si = nodes[si]
+                rep_ei = nodes[ei]
+                # find index in ordered_pts with minimal distance
+                ordered_arr = np.array(ordered_pts)
+                d_si = np.linalg.norm(ordered_arr - rep_si, axis=1).min()
+                d_ei = np.linalg.norm(ordered_arr - rep_ei, axis=1).min()
+                # choose orientation that minimizes gap
+                seg = polylines[seg_idx]
+                if d_si <= d_ei:
+                    seg_oriented = seg.copy()
+                else:
+                    seg_oriented = np.flip(seg, axis=0).copy()
+                # append with simple duplication avoidance
+                for p in seg_oriented:
+                    if len(ordered_pts) == 0 or np.linalg.norm(ordered_pts[-1] - p) > tol:
+                        ordered_pts.append(p)
+                used_seg[seg_idx] = True
+
+    pts_all = np.array(ordered_pts, dtype=float)
     return pts_all
 
 
@@ -150,6 +221,9 @@ def interpolate_polyline(points, step_m):
 
 # ---------- initial frame from world_up ----------
 def initial_frame_from_up(tangent, world_up, tool_axis='X'):
+    """
+    Ensures that first point will start facing up in every path (later gets fliped)
+    """
     X = utils.normalize(tangent)  # we align tool +X with the path
     proj = world_up - np.dot(world_up, X) * X
     if np.linalg.norm(proj) < 1e-6:
@@ -255,7 +329,10 @@ def main():
     path_pts = interpolate_polyline(raw_pts_m, RESAMPLE_STEP)  # Mx3
 
     # reverse the order so we start at the other end
-    path_pts = np.flip(path_pts, axis=0)
+    if MAZE == "B" or MAZE == "D":
+        pass  #placeholder, no fliping
+    else:
+        path_pts = np.flip(path_pts, axis=0)
 
     # 5. build waypoints with smooth, continuous orientation
     waypoints = []
@@ -300,8 +377,20 @@ def main():
         ])
 
         # at first add initial waypoint to guide into maze 
+        idx_shift = 1 # due to adding guide-in points
+
         if len(waypoints) < 1:
             p_shifted = utils.move_back_along_x(p_curr_offset, R_tool_world, distance=GUIDE_OFFSET)
+
+            if HORIZONTAL_START:
+                idx_shift += 1
+                p_horizontal_shifted = utils.move_up_along_z(p_shifted, R_tool_world, distance=GUIDE_OFFSET)
+                waypoints.append({
+                    "pos": p_horizontal_shifted.tolist(),
+                    "rpy": [float(rpy[0]), float(rpy[1]), float(rpy[2])],
+                    "mat": mat_flat,
+                    "idx": int(i)
+                })
 
             waypoints.append({
                 "pos": p_shifted.tolist(),
@@ -327,7 +416,7 @@ def main():
             "pos": p_curr_offset.tolist(),
             "rpy": [float(rpy[0]), float(rpy[1]), float(rpy[2])],
             "mat": mat_flat,
-            "idx": int(i) + 1
+            "idx": int(i) + idx_shift
         })
 
     # last point, reuse last orientation — also run the same compression logic

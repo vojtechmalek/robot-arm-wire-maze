@@ -97,7 +97,7 @@ class Pose:
             yaw = 0
         
         return np.array([roll, pitch, yaw])
-
+      
     def __matmul__(self, other: Union['Pose', np.ndarray]) -> Union['Pose', np.ndarray]:
         """
         Compose poses: self @ other
