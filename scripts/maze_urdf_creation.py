@@ -11,7 +11,7 @@ import math
 
 # ======= USER CONFIGURATION =======
 WAYPOINT_NAME = "E"   # <-- Change this (A, B, C, etc.)
-WAYPOINT_DIR  = "waypoints"
+WAYPOINT_DIR  = "/home/steinda4/Documents/rob1_semestralka/waypoints/opt_waypoint_paths"
 THICKNESS_X   = 0.01
 THICKNESS_Y   = 0.01
 ANGLE_TOL_DEG = 2.0
@@ -19,7 +19,11 @@ DUPE_DIST     = 1e-9
 # ==================================
 
 def load_waypoints(filepath):
-    """Load waypoints, ignoring any rpy values."""
+    """Load waypoints, preserving collision flags.
+
+    Returns a list of dicts: {"pos": (x,y,z), "collision": bool}.
+    If the waypoint JSON doesn't include "collision", defaults to True.
+    """
     with open(filepath, "r", encoding="utf-8") as f:
         data = json.load(f)
     if isinstance(data, dict):
@@ -30,7 +34,8 @@ def load_waypoints(filepath):
         if "pos" not in w or len(w["pos"]) != 3:
             raise ValueError(f"{filepath}: each waypoint must have 'pos':[x,y,z]")
         x, y, z = map(float, w["pos"])
-        pts.append((x, y, z))
+        collision = w.get("collision", True)
+        pts.append({"pos": (x, y, z), "collision": bool(collision)})
     return pts
 
 def dist(a, b):
@@ -56,21 +61,28 @@ def pitch_yaw_from_dir(u):
     return (0.0, pitch, yaw)
 
 def remove_duplicates(points, dupe_dist):
+    """Remove consecutive duplicate waypoints (by position).
+
+    `points` is a list of waypoint dicts with key 'pos'.
+    """
     if not points: return points
     result = [points[0]]
     for p in points[1:]:
-        if dist(p, result[-1]) > dupe_dist:
+        if dist(p["pos"], result[-1]["pos"]) > dupe_dist:
             result.append(p)
     return result
 
 def simplify_collinear(points, angle_tol_deg):
-    """Merge points that are nearly straight."""
+    """Merge points that are nearly straight.
+
+    `points` is a list of waypoint dicts with key 'pos'.
+    """
     if len(points) <= 2:
         return points
     tol = math.radians(angle_tol_deg)
     keep = [True] * len(points)
     for i in range(1, len(points) - 1):
-        a, b, c = points[i-1], points[i], points[i+1]
+        a, b, c = points[i-1]["pos"], points[i]["pos"], points[i+1]["pos"]
         v1 = normalize((b[0]-a[0], b[1]-a[1], b[2]-a[2]))
         v2 = normalize((c[0]-b[0], c[1]-b[1], c[2]-b[2]))
         if not v1 or not v2:
@@ -81,7 +93,13 @@ def simplify_collinear(points, angle_tol_deg):
     return [p for p, k in zip(points, keep) if k]
 
 def generate_urdf(points, robot_name, link_name):
-    """Build URDF with visual+collision boxes for maze and a small +X arrow."""
+    """Build URDF with visual+collision boxes for maze.
+
+    `points` is a list of waypoint dicts with keys 'pos' and 'collision'.
+    If either endpoint of a segment has "collision": false, the collision
+    element for that segment is omitted. (Assumption: collision is required
+    only when both endpoints have collision=True.)
+    """
     lines = []
     lines.append('<?xml version="1.0"?>')
     lines.append(f'<robot name="{robot_name}">')
@@ -90,7 +108,8 @@ def generate_urdf(points, robot_name, link_name):
 
     # Maze boxes
     for i in range(len(points)-1):
-        p0, p1 = points[i], points[i+1]
+        p0 = points[i]["pos"]
+        p1 = points[i+1]["pos"]
         L = dist(p0, p1)
         if L == 0:
             continue
@@ -107,13 +126,31 @@ def generate_urdf(points, robot_name, link_name):
         lines.append('      <material name="maze_white" />')
         lines.append('    </visual>')
 
-        # COLLISION
-        lines.append('    <collision>')
-        lines.append(f'      <origin xyz="{m[0]:.6f} {m[1]:.6f} {m[2]:.6f}" rpy="{r:.6f} {p:.6f} {y:.6f}" />')
-        lines.append('      <geometry>')
-        lines.append(f'        <box size="{THICKNESS_X:.6f} {THICKNESS_Y:.6f} {L:.6f}" />')
-        lines.append('      </geometry>')
-        lines.append('    </collision>')
+        # COLLISION: only add if both endpoint waypoints allow collision
+        c0 = points[i].get("collision", True)
+        c1 = points[i+1].get("collision", True)
+        if c0 and c1:
+            lines.append('    <collision>')
+            lines.append(f'      <origin xyz="{m[0]:.6f} {m[1]:.6f} {m[2]:.6f}" rpy="{r:.6f} {p:.6f} {y:.6f}" />')
+            lines.append('      <geometry>')
+            lines.append(f'        <box size="{THICKNESS_X:.6f} {THICKNESS_Y:.6f} {L:.6f}" />')
+            lines.append('      </geometry>')
+            lines.append('    </collision>')
+
+    # append maze base box (large flat box under maze)
+    lines.append('    <visual>')
+    lines.append('      <origin xyz="0 0 -0.017" rpy="0 0 0" />')
+    lines.append('      <geometry>')
+    lines.append('        <box size="0.14 0.14 0.034" />')
+    lines.append('      </geometry>')
+    lines.append('      <material name="maze_white" />')
+    lines.append('    </visual>')
+    lines.append('    <collision>')
+    lines.append('      <origin xyz="0 0 -0.017" rpy="0 0 0" />')
+    lines.append('      <geometry>')
+    lines.append('        <box size="0.14 0.14 0.034" />')
+    lines.append('      </geometry>')
+    lines.append('    </collision>')
 
     lines.append('  </link>')
     lines.append('</robot>')
@@ -130,7 +167,7 @@ def main():
 
     pts = load_waypoints(waypoint_file)
     pts = remove_duplicates(pts, DUPE_DIST)
-    pts = simplify_collinear(pts, ANGLE_TOL_DEG)
+    # pts = simplify_collinear(pts, ANGLE_TOL_DEG)
 
     urdf_text = generate_urdf(pts, robot_name=f"maze_{WAYPOINT_NAME}", link_name="mazeLink")
     out_path = f"maze_{WAYPOINT_NAME}.urdf"

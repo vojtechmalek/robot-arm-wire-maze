@@ -8,7 +8,7 @@ from .pose import Pose
 
 # Distance from ring center to flange
 HOOP_CENTER_DISTANCE = 0.135  # 135 mm
-HOOP_OFFSET_Z = 0.013        # 13 mm above ring center
+HOOP_OFFSET_Z = 0.0133        # 13 mm above ring center
 
 ########################## Rotation matrices around xyz axes ##########################
 

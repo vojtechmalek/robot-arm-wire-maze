@@ -112,6 +112,15 @@ class StateSpace:
         movement_offset = Pose(p=np.array([utils.HOOP_CENTER_DISTANCE, 0.0, -utils.HOOP_OFFSET_Z]))
         pose = pose @ movement_offset
         
+        #! TEMP: adjust height based on angle
+        # get hoop rotation z vector
+        hoop_z = pose.R[:, 1]
+        world_z = np.array([0, 0, 1])
+        z_dot_product = np.dot(hoop_z, world_z)
+
+        pose._p[2] -= 0.02 * np.abs(z_dot_product)
+        # pose._p[2] -= 0.05
+        
         # Skip if Z position is too low
         if pose.p[2] < GROUND_LIMIT:
             self._ik_solutions[cache_key] = []

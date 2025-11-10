@@ -21,7 +21,8 @@
       1.0,
       -0.0
     ],
-    "idx": 0
+    "idx": 0,
+    "collision": false
   },
   {
     "pos": [
@@ -45,7 +46,8 @@
       1.0,
       -0.0
     ],
-    "idx": 0
+    "idx": 0,
+    "collision": false
   },
   {
     "pos": [

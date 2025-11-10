@@ -3,16 +3,29 @@
   <link name="mazeLink">
     <material name="maze_white"><color rgba="1 1 1 1"/></material>
     <visual>
-      <origin xyz="-0.000000 -0.000000 0.100000" rpy="0.000000 3.141593 0.000000" />
+      <origin xyz="-0.000000 -0.000000 0.115000" rpy="0.000000 3.141593 0.785398" />
       <geometry>
-        <box size="0.010000 0.010000 0.200000" />
+        <box size="0.010000 0.010000 0.230000" />
       </geometry>
       <material name="maze_white" />
     </visual>
     <collision>
-      <origin xyz="-0.000000 -0.000000 0.100000" rpy="0.000000 3.141593 0.000000" />
+      <origin xyz="-0.000000 -0.000000 0.115000" rpy="0.000000 3.141593 0.785398" />
       <geometry>
-        <box size="0.010000 0.010000 0.200000" />
+        <box size="0.010000 0.010000 0.230000" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0 0 -0.017" rpy="0 0 0" />
+      <geometry>
+        <box size="0.14 0.14 0.034" />
+      </geometry>
+      <material name="maze_white" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.017" rpy="0 0 0" />
+      <geometry>
+        <box size="0.14 0.14 0.034" />
       </geometry>
     </collision>
   </link>

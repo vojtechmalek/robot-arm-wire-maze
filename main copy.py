@@ -6,7 +6,7 @@ from time import sleep
 from core.pose import Pose
     
 # Configuration
-maze = "D"
+maze = "A"
 local_mode = False
 use_gui = True
 
@@ -37,7 +37,7 @@ if not local_mode:
     test_pose = np.eye(4)
     # set position
     # test_pose[0:3, 3] = [0.450, 0.0, 0.037]
-    test_pose[0:3, 3] = [0.450, 0.0, 0.036 + 0.026]
+    test_pose[0:3, 3] = [0.450, 0.0, 0.037 ]
     pose = Pose(T=test_pose)
 
     pose = pose @ Pose(rpy=np.array([0, 0, np.pi/2]))
