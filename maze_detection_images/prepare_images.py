@@ -17,6 +17,8 @@ id1_distance_from_center = (DISTANCE_FROM_MARKER_TO_CENTER, DISTANCE_FROM_MARKER
 id2_distance_from_center = (-DISTANCE_FROM_MARKER_TO_CENTER, -DISTANCE_FROM_MARKER_TO_CENTER)
 
 def get_detection_image(img):
+    img = img.copy()
+
     aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
     detector = cv2.aruco.ArucoDetector(aruco_dict)
 

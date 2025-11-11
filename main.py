@@ -31,6 +31,8 @@ if maze is None or maze == "NONE":
     print(f"[MAIN] Could not detect maze type from image, what maze is this?")
     maze = input("Enter maze type (A, B, C, D, E): ").strip().upper()
 
+print(f"[MAIN] Detected maze type: {maze}")
+
 # detect maze position from image
 print("[MAIN] Detecting maze position from image...")
 maze_pose = base_detection.detect_base_position(aruco_img)
