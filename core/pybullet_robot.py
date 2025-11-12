@@ -15,6 +15,7 @@ from .state_space import StateSpace
 
 
 ROBOT_BASE_POSITION = [0, 0, 0.1 - 0.0250 + 0.0004]
+NUM_STEPS_DEFAULT = 5 # number of steps to check for collision along a path (including start and end, which are already checked in pathfinding)
 
 
 class PybulletRobot(CRSRobot):
@@ -97,6 +98,9 @@ class PybulletRobot(CRSRobot):
                 break
         if len(self._joints) < 6:
             print(f"Warning: found only {len(self._joints)} revolute joints")
+        
+        # Pre-compute joint direction multipliers for faster _set_q
+        self._joint_direction_multipliers = np.array([1, -1, -1, 1, -1, 1], dtype=np.float64)
 
         # Disable default motor control for all joints
         # PyBullet tries to control joints by default, but we want manual control
@@ -144,9 +148,11 @@ class PybulletRobot(CRSRobot):
         """
         Set the robot joint positions to the target positions.
         """
-        # Adjust for joint direction differences
-        q_target = q_target * np.array([1, -1, -1, 1, -1, 1])
+        # Adjust for joint direction differences (use pre-computed array)
+        q_target = q_target * self._joint_direction_multipliers
 
+        # Update joints (PyBullet doesn't have batch resetJointStates, so we loop)
+        # This is still fast since it's just 6 joints
         for jidx, pos in zip(self._joints, q_target):
             self._bullet_client.resetJointState(self._robot_urdf, jidx, pos)
     
@@ -171,12 +177,13 @@ class PybulletRobot(CRSRobot):
         contacts = self._bullet_client.getContactPoints(bodyA=self._robot_urdf, bodyB=self._maze_urdf)
         return len(contacts) > 0
     
-    def is_path_colliding_with_maze(self, start_q: np.ndarray, end_q: np.ndarray, num_steps: int = 10) -> bool:
+    def is_path_colliding_with_maze(self, start_q: np.ndarray, end_q: np.ndarray, num_steps: int = NUM_STEPS_DEFAULT) -> bool:
         """
         Check if collision occurs along a path.
         """
-        for i in range(num_steps):
-            t = i / (num_steps - 1)
+        # Check intermediate points along the path (skip start and end as they're already validated)
+        for i in range(1, num_steps):
+            t = i / num_steps
             q = start_q * (1 - t) + end_q * t
             self._set_q(q)
             self.step_simulation()

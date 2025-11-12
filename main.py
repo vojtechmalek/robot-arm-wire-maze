@@ -2,14 +2,14 @@ import cv2
 from ctu_crs import CRS97
 from core import PybulletRobot, base_detection
 from time import sleep
-import cProfile
+from datetime import datetime
 
 from detection.detect_maze import get_maze_type
 
     
 # Configuration
 local_mode = True
-use_gui = False
+use_gui = True
 
 NUM_ANGLE_SAMPLES = 30
 STEP = 1
@@ -18,7 +18,12 @@ MAX_TILT_ANGLE = 40  # Maximum tilt angle to try (degrees)
 NUM_TILT_DIRECTIONS = 8  # Number of tilt directions (4 = cardinal, 8 = cardinal + diagonal)
 
 if local_mode:
-    aruco_img = cv2.imread("aruco_images/aruco_12.png")
+    aruco_img = cv2.imread("aruco_images/aruco_20.png")
+    # 1-4 A
+    # 5-8 B
+    # 9-12 C
+    # 13-16 D # not possible: 13,14,15
+    # 17-22 E # not possible: 17, 21, 22
 else:
     robot = CRS97()
     robot.initialize(home=False)  # initialize connection to the robot, perform hard and soft home
@@ -44,13 +49,19 @@ pybullet_robot = PybulletRobot(maze=maze, maze_pose=maze_pose, use_gui=use_gui, 
 # Find path (calculates state space on-the-fly)
 print("[MAIN] Finding path")
 
-# cProfile.run("q_path = pybullet_robot.find_path(num_angle_samples=NUM_ANGLE_SAMPLES, step=STEP, max_tilt_angle=MAX_TILT_ANGLE, num_tilt_directions=NUM_TILT_DIRECTIONS)", "profile_stats.prof")
+
+start_time = datetime.now()
 q_path = pybullet_robot.find_path(
     num_angle_samples=NUM_ANGLE_SAMPLES, 
     step=STEP,
     max_tilt_angle=MAX_TILT_ANGLE,
     num_tilt_directions=NUM_TILT_DIRECTIONS
 )
+end_time = datetime.now()
+
+# Calculate and print total time
+elapsed_time = (end_time - start_time).total_seconds()
+print(f"[MAIN] Pathfinding completed in {elapsed_time:.3f} seconds")
 
 if use_gui:
     # Visualize state space (interactive plot)

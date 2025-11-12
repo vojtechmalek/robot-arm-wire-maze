@@ -36,7 +36,7 @@ Z_OFFSET = 0.02  # meters, vertical offset based on hoop angle
 ################################################################################################################
 
 def state_transition_cost(old_q: np.ndarray, new_q: np.ndarray, 
-                          new_tilt_roll: float, new_tilt_pitch: float) -> float:
+                          new_tilt_magnitude_deg: int) -> float:
     """
     Calculate the total cost of transitioning from one state to another.
     """
@@ -47,10 +47,9 @@ def state_transition_cost(old_q: np.ndarray, new_q: np.ndarray,
     # This encourages staying at lower tilts
     # Penalty: 1 base + 1 per increment (1 for 5°, 2 for 10°, 3 for 15°, etc.)
     tilt_penalty = 0.0
-    tilt_deg = np.rad2deg(np.sqrt(new_tilt_roll**2 + new_tilt_pitch**2))
-    if tilt_deg > 1e-6:  # Destination state is tilted
-        increments = int(np.ceil(tilt_deg / TILT_INCREMENT))
-        tilt_penalty = TILT_BASE_PENALTY + increments * TILT_INCREMENTAL_PENALTY  # Base 1 + increment level
+    if new_tilt_magnitude_deg > 0:  # Destination state is tilted
+        increments = int(np.ceil(new_tilt_magnitude_deg / TILT_INCREMENT))
+        tilt_penalty = TILT_BASE_PENALTY + increments * TILT_INCREMENTAL_PENALTY
     
     return step_cost + tilt_penalty
 
@@ -84,17 +83,19 @@ class StateSpace:
     ################################################################################################################
 
     def _get_ik_solutions(self, waypoint_idx: int, angle_idx: int, test_robot, 
-                         tilt_roll_delta: float = 0.0, tilt_pitch_delta: float = 0.0) -> List[np.ndarray]:
+                         tilt_magnitude_deg: int = 0, tilt_direction_idx: int = 0) -> List[np.ndarray]:
         """
         Get IK solutions for a specific waypoint, angle offset, and tilt.
-        Computes them on-the-fly if not already cached.
         """
-        # Create cache key
-        cache_key = (waypoint_idx, angle_idx, tilt_roll_delta, tilt_pitch_delta)
+        # Create cache key using discrete (magnitude, direction_idx) - avoids float precision issues
+        cache_key = (waypoint_idx, angle_idx, tilt_magnitude_deg, tilt_direction_idx)
         
         # Check if already computed
         if cache_key in self._ik_solutions:
             return self._ik_solutions[cache_key]
+        
+        # Convert (magnitude_deg, direction_idx) to (roll, pitch) using lookup table
+        tilt_roll_delta, tilt_pitch_delta = self._tilt_key_to_roll_pitch(tilt_magnitude_deg, tilt_direction_idx)
         
         # Compute IK solutions for this position
         wp = self._waypoints[waypoint_idx]
@@ -185,6 +186,69 @@ class StateSpace:
                 (roll_dir * tilt_angle_rad, pitch_dir * tilt_angle_rad)
                 for roll_dir, pitch_dir in tilt_directions
             ]
+        
+        # Precompute all tilt vectors: (magnitude_deg, direction_idx) -> (roll, pitch)
+        # This allows fast lookup instead of recalculating by scaling
+        # Also enables using discrete (magnitude, direction) in cache keys instead of floats
+        precomputed_all_tilt_vectors = {}
+        # Add 0° tilt (magnitude=0, direction_idx=0)
+        precomputed_all_tilt_vectors[(0, 0)] = (0.0, 0.0)
+        # Add all other tilts
+        for tilt_angle_deg in tilt_angles_deg:
+            for direction_idx, (roll, pitch) in enumerate(precomputed_tilt_directions[tilt_angle_deg]):
+                precomputed_all_tilt_vectors[(tilt_angle_deg, direction_idx)] = (roll, pitch)
+        
+        # Store for use in helper functions and lookups
+        self._precomputed_all_tilt_vectors = precomputed_all_tilt_vectors
+        self._precomputed_tilt_directions = precomputed_tilt_directions
+        
+        # Helper function to convert (magnitude_deg, direction_idx) -> (roll, pitch)
+        # Simple lookup in precomputed vectors
+        def tilt_key_to_roll_pitch(tilt_magnitude_deg: int, tilt_direction_idx: int) -> tuple:
+            """Convert (magnitude_deg, direction_idx) to (roll, pitch) using precomputed lookup."""
+            return precomputed_all_tilt_vectors.get((tilt_magnitude_deg, tilt_direction_idx), (0.0, 0.0))
+        
+        # Helper function to convert (roll, pitch) -> (magnitude_deg, direction_idx)
+        # Used when we have roll/pitch from old states or need to convert for cache keys
+        def roll_pitch_to_tilt_key(tilt_roll: float, tilt_pitch: float) -> tuple:
+            """Convert (roll, pitch) to (magnitude_deg, direction_idx)."""
+            if abs(tilt_roll) < 1e-6 and abs(tilt_pitch) < 1e-6:
+                return (0, 0)
+            
+            # Calculate magnitude and round to nearest TILT_INCREMENT
+            magnitude_rad = np.sqrt(tilt_roll**2 + tilt_pitch**2)
+            magnitude_deg = round(np.rad2deg(magnitude_rad))
+            magnitude_deg = round(magnitude_deg / TILT_INCREMENT) * TILT_INCREMENT
+            
+            # Fast path: check if magnitude matches a precomputed tilt angle
+            if magnitude_deg in tilt_angles_deg or magnitude_deg == 0:
+                # Find matching direction by comparing to precomputed vectors for this magnitude
+                epsilon = 1e-5
+                for direction_idx, (precomputed_roll, precomputed_pitch) in enumerate(precomputed_tilt_directions.get(magnitude_deg, [])):
+                    if abs(tilt_roll - precomputed_roll) < epsilon and abs(tilt_pitch - precomputed_pitch) < epsilon:
+                        return (int(magnitude_deg), direction_idx)
+            
+            # Slow path: no exact match (intermediate/scaled tilt), find closest direction
+            best_match = (int(magnitude_deg), 0)
+            min_diff = float('inf')
+            epsilon = 1e-5
+            for test_magnitude_deg in [0] + tilt_angles_deg:
+                for direction_idx, (precomputed_roll, precomputed_pitch) in enumerate(precomputed_tilt_directions.get(test_magnitude_deg, [])):
+                    diff = abs(tilt_roll - precomputed_roll) + abs(tilt_pitch - precomputed_pitch)
+                    if diff < min_diff:
+                        min_diff = diff
+                        best_match = (int(test_magnitude_deg), direction_idx)
+                        if diff < epsilon:
+                            return best_match
+            
+            return best_match
+        
+        # Store helper functions as instance methods
+        self._tilt_key_to_roll_pitch = tilt_key_to_roll_pitch
+        self._roll_pitch_to_tilt_key = roll_pitch_to_tilt_key
+        
+        # Cache for tilts_to_try_deg lists (keyed by current_tilt_deg to avoid rebuilding)
+        self._cached_tilts_to_try = {}
 
         # Try all movement directions (prefer 0° tilt when possible)
         movements = [
@@ -207,7 +271,9 @@ class StateSpace:
         # Initialize IK solutions storage as dict - IK solutions are computed on demand
         # Key: (waypoint_idx, angle_idx, tilt_roll_delta, tilt_pitch_delta) -> list of IK solutions
         self._ik_solutions = {}
-        self._tested_positions = []  # Track all tested positions (wp_idx, ang_idx) - includes all tilts, projected to 2D grid
+        # Only track tested_positions if visualization will be used (saves memory and set operations)
+        # Visualization is typically only used when GUI is enabled
+        self._tested_positions = set() if self._robot._use_gui else None
         
 
         # --- Simulation setup ---
@@ -223,134 +289,133 @@ class StateSpace:
             test_robot = self._robot
             created_separate_sim = False
 
-        # Priority queue: (cost, waypoint_idx, angle_idx, tilt_roll, tilt_pitch, q_tuple, ...)
+        # Priority queue: (cost, waypoint_idx, angle_idx, tilt_magnitude_deg, tilt_direction_idx, q_tuple, ...)
         # q_tuple is tuple(q) for hashing - convert back to np.array when needed
+        # States now use (magnitude_deg, direction_idx) instead of (roll, pitch) to avoid float precision issues
         priority_queue = []
         heapq.heapify(priority_queue)
         
-        # Visited states: (waypoint_idx, angle_idx, tilt_roll, tilt_pitch, q_tuple) -> best_cost
+        # Visited states: (waypoint_idx, angle_idx, tilt_magnitude_deg, tilt_direction_idx, q_tuple) -> best_cost
         # q_tuple is tuple(q) for hashing
         visited_costs = {}
         
-        # Parent tracking for path reconstruction: q_tuple -> (parent_q_tuple, waypoint_idx, angle_idx, tilt_roll, tilt_pitch)
+        # Parent tracking for path reconstruction: q_tuple -> (parent_q_tuple, waypoint_idx, angle_idx, tilt_magnitude_deg, tilt_direction_idx)
         # Using q_tuple as key since it uniquely identifies the robot state
         parents = {}
         
         # Function thats called when we are stuck (cant progress forwards from this state) and
         # it continues in the same direction by scaling current values
         #! this could be improved probably
-        def try_tilts_at_position(wp_idx: int, ang_idx: int, current_tilt_roll: float, current_tilt_pitch: float, 
+        def try_tilts_at_position(wp_idx: int, ang_idx: int, current_tilt_magnitude_deg: int, current_tilt_direction_idx: int,
                                    current_q: np.ndarray, current_cost: float, current_state: tuple):
             """
             Try tilts when stuck at a position. Progressively tries the next tilt increment.
             If at 0° tilt, tries all directions. Otherwise, continues in the same direction.
             """
-            # Calculate current tilt magnitude in degrees
-            current_tilt_magnitude = np.sqrt(current_tilt_roll**2 + current_tilt_pitch**2)
-            current_tilt_deg = np.rad2deg(current_tilt_magnitude)
-            
             # Find the next tilt increment to try (current + TILT_INCREMENT)
-            next_tilt_deg = current_tilt_deg + TILT_INCREMENT
+            next_tilt_deg = current_tilt_magnitude_deg + TILT_INCREMENT
             
             # Only try tilts up to max_tilt_angle
             if next_tilt_deg > max_tilt_angle:
                 return  # No more tilts to try
             
-            # Convert to radians
-            next_tilt_rad = np.deg2rad(next_tilt_deg)
-            
             # If at 0° tilt, try all directions. Otherwise, continue in the same direction.
-            if abs(current_tilt_magnitude) < 1e-6:
+            if current_tilt_magnitude_deg == 0:
                 # At 0° tilt: try all precomputed directions at this increment
-                directions_to_try = precomputed_tilt_directions[next_tilt_deg]
+                # directions_to_try is list of (magnitude_deg, direction_idx) tuples
+                directions_to_try = [(next_tilt_deg, dir_idx) for dir_idx in range(len(precomputed_tilt_directions[next_tilt_deg]))]
             else:
-                # Not at 0°: continue in the same direction by scaling current values
-                # Scale factor: next_tilt / current_tilt
-                scale_factor = next_tilt_rad / current_tilt_magnitude
-                tilt_roll_delta = current_tilt_roll * scale_factor
-                tilt_pitch_delta = current_tilt_pitch * scale_factor
-                directions_to_try = [(tilt_roll_delta, tilt_pitch_delta)]
+                # Not at 0°: continue in the same direction
+                directions_to_try = [(next_tilt_deg, current_tilt_direction_idx)]
             
-            # Process each direction (if we are not at 0° tilt, its just one direction)
-            for tilt_roll_delta, tilt_pitch_delta in directions_to_try:
+            # Process each direction
+            for next_tilt_magnitude_deg, next_tilt_direction_idx in directions_to_try:
                 # Track tested position (projected to 2D grid, so tilt doesnt matter)
                 # Track it even if we dont have any IK solutions, because we need to know that we tested this position
-                self._tested_positions.append((wp_idx, ang_idx))
-
+                if self._tested_positions is not None:
+                    self._tested_positions.add((wp_idx, ang_idx))
+                
                 # Get IK solutions with this tilt
                 viable_sols = self._get_ik_solutions(wp_idx, ang_idx, test_robot, 
-                                                     tilt_roll_delta, tilt_pitch_delta)
+                                                     next_tilt_magnitude_deg, next_tilt_direction_idx)
                 
                 if len(viable_sols) == 0:
                     continue
                 
                 # Try all IK solutions
-                for ik_solution_idx in range(len(viable_sols)):
-                    tilted_q = viable_sols[ik_solution_idx]
+                for tilted_q in viable_sols:
                     
                     # Check joint limit transition from current state
                     q_diff = tilted_q - current_q
                     if np.any(np.abs(q_diff) > MAX_JOINT_CHANGE):
                         continue
                     
-                    # Check collision along path
-                    if test_robot.is_path_colliding_with_maze(current_q, tilted_q):
-                        continue
+                    # Create new state with q tuple for hashing (needed for visited_costs check)
+                    q_tuple = tuple(tilted_q)
+                    new_state = (wp_idx, ang_idx, next_tilt_magnitude_deg, next_tilt_direction_idx, q_tuple)
                     
-                    # Calculate transition cost
-                    transition_cost = state_transition_cost(current_q, tilted_q, tilt_roll_delta, tilt_pitch_delta)
+                    # Calculate transition cost (needed for visited_costs comparison)
+                    transition_cost = state_transition_cost(current_q, tilted_q, next_tilt_magnitude_deg)
                     new_cost = current_cost + transition_cost
                     
-                    # Create new state with q tuple for hashing
-                    q_tuple = tuple(tilted_q)
-                    new_state = (wp_idx, ang_idx, tilt_roll_delta, tilt_pitch_delta, q_tuple)
+                    # Check if this is a better path (FAST check - do this BEFORE expensive collision check)
+                    existing_cost = visited_costs.get(new_state)
+                    if existing_cost is not None and new_cost >= existing_cost:
+                        continue
                     
-                    # Check if this is a better path
-                    if new_state in visited_costs and new_cost >= visited_costs[new_state]:
+                    # Check collision along path (SLOW check - only do if state is new/better)
+                    if test_robot.is_path_colliding_with_maze(current_q, tilted_q):
                         continue
                     
                     # Update visited costs and add to queue
                     visited_costs[new_state] = new_cost
                     # Extract parent q_tuple from current_state (q_tuple is at index 4)
                     current_q_tuple = current_state[4]
-                    parents[q_tuple] = (current_q_tuple, wp_idx, ang_idx, tilt_roll_delta, tilt_pitch_delta)
-                    # Queue format: (cost, wp, ang, tilt_roll, tilt_pitch, q_tuple)
-                    heapq.heappush(priority_queue, (new_cost, wp_idx, ang_idx, tilt_roll_delta, tilt_pitch_delta, q_tuple))
+                    parents[q_tuple] = (current_q_tuple, wp_idx, ang_idx, next_tilt_magnitude_deg, next_tilt_direction_idx)
+                    # Queue format: (cost, wp, ang, tilt_magnitude_deg, tilt_direction_idx, q_tuple)
+                    heapq.heappush(priority_queue, (new_cost, wp_idx, ang_idx, next_tilt_magnitude_deg, next_tilt_direction_idx, q_tuple))
 
         # Initialize: start from all valid states in first column (waypoint_idx=0)
         zero_tilt_total_solutions = 0
         for angle_idx in range(grid_count_y):
-            viable_sols = self._get_ik_solutions(0, angle_idx, test_robot, 0.0, 0.0)
+            viable_sols = self._get_ik_solutions(0, angle_idx, test_robot, 0, 0)
             # Track tested position (all positions tested, regardless of viable IK)
-            self._tested_positions.append((0, angle_idx))
+            if self._tested_positions is not None:
+                self._tested_positions.add((0, angle_idx))
             if len(viable_sols) == 0:
                 continue
             zero_tilt_total_solutions += len(viable_sols)
-            for ik_solution_idx in range(len(viable_sols)):
-                q = viable_sols[ik_solution_idx]
+            for q in viable_sols:
                 q_tuple = tuple(q)
-                state = (0, angle_idx, 0.0, 0.0, q_tuple)
+                # Use (magnitude_deg=0, direction_idx=0) for 0° tilt
+                state = (0, angle_idx, 0, 0, q_tuple)
                 visited_costs[state] = 0.0
                 # Start states have no parent
-                parents[q_tuple] = (None, 0, angle_idx, 0.0, 0.0)
-                heapq.heappush(priority_queue, (0.0, 0, angle_idx, 0.0, 0.0, q_tuple))
+                parents[q_tuple] = (None, 0, angle_idx, 0, 0)
+                heapq.heappush(priority_queue, (0.0, 0, angle_idx, 0, 0, q_tuple))
         
-        #TODO maybe continue even if we found valid start states, would speed it up but risks failing to find a solution
-        if zero_tilt_total_solutions == 0:
+        #TODO maybe continue only wth some if we found valid start states, would speed it up but risks failing to find a solution
+        if True: #zero_tilt_total_solutions == 0:
             # Try each tilt angle progressively
             for idx, tilt_angle_deg in enumerate(tilt_angles_deg):
                 
                 tilt_angle_valid_states = 0
                 for angle_idx in range(grid_count_y):
-                    # Use precomputed tilt directions
-                    for tilt_roll_delta, tilt_pitch_delta in precomputed_tilt_directions[tilt_angle_deg]:
+                    # Use precomputed tilt directions - iterate by direction index
+                    for direction_idx, (tilt_roll_delta, tilt_pitch_delta) in enumerate(precomputed_tilt_directions[tilt_angle_deg]):
                         
                         # Scale tilt by index to get progressively larger tilts
-                        current_tilt_roll_delta = tilt_roll_delta * (idx + 1)
-                        current_tilt_pitch_delta = tilt_pitch_delta * (idx + 1)
-                        # Get IK solutions with this tilt
+                        # Calculate actual magnitude after scaling
+                        scaled_magnitude_deg = tilt_angle_deg * (idx + 1)
+                        if scaled_magnitude_deg > max_tilt_angle:
+                            continue
+                        
+                        # Get IK solutions with this tilt (use scaled magnitude and same direction)
+                        # For scaled tilts, we need to find the closest precomputed vector
+                        # For now, use the base tilt_angle_deg and direction_idx
+                        # TODO: handle scaled tilts properly
                         viable_sols = self._get_ik_solutions(0, angle_idx, test_robot, 
-                                                             current_tilt_roll_delta, current_tilt_pitch_delta)
+                                                             tilt_angle_deg, direction_idx)
                         
                         if len(viable_sols) == 0:
                             continue
@@ -360,21 +425,21 @@ class StateSpace:
                         # Start states: no transition penalty (they're initial states, not transitions)
                         # No state penalty either - we only penalize entering tilted states via transitions
                         zero_q = np.array([0, 0, 0, 0, 0, 0]) #TODO temrporary for 0 q penalty
-                        start_cost = state_transition_cost(zero_q, zero_q, tilt_roll_delta, tilt_pitch_delta)
+                        start_cost = state_transition_cost(zero_q, zero_q, scaled_magnitude_deg)
                         
                         # Try all IK solutions
-                        for ik_solution_idx in range(len(viable_sols)):
-                            tilted_q = viable_sols[ik_solution_idx]
+                        for tilted_q in viable_sols:
                             
                             # Create new state with q tuple for hashing
+                            # Use (magnitude_deg, direction_idx) instead of (roll, pitch)
                             q_tuple = tuple(tilted_q)
-                            new_state = (0, angle_idx, tilt_roll_delta, tilt_pitch_delta, q_tuple)
+                            new_state = (0, angle_idx, scaled_magnitude_deg, direction_idx, q_tuple)
                             
                             # Update visited costs and add to queue
                             visited_costs[new_state] = start_cost
                             # Start states have no parent
-                            parents[q_tuple] = (None, 0, angle_idx, tilt_roll_delta, tilt_pitch_delta)
-                            heapq.heappush(priority_queue, (start_cost, 0, angle_idx, tilt_roll_delta, tilt_pitch_delta, q_tuple))
+                            parents[q_tuple] = (None, 0, angle_idx, scaled_magnitude_deg, direction_idx)
+                            heapq.heappush(priority_queue, (start_cost, 0, angle_idx, scaled_magnitude_deg, direction_idx, q_tuple))
                             tilt_angle_valid_states += 1
                 
                 
@@ -391,14 +456,15 @@ class StateSpace:
 
         try:
             while priority_queue:               
-                cost_so_far, waypoint_idx, angle_idx, tilt_roll, tilt_pitch, q_tuple = heapq.heappop(priority_queue)
+                cost_so_far, waypoint_idx, angle_idx, tilt_magnitude_deg, tilt_direction_idx, q_tuple = heapq.heappop(priority_queue)
                 
                 # Convert q_tuple back to numpy array
                 current_q = np.array(q_tuple)
                 
                 # Skip if we've found a better path to this state
-                state = (waypoint_idx, angle_idx, tilt_roll, tilt_pitch, q_tuple)
-                if state in visited_costs and cost_so_far > visited_costs[state]:
+                state = (waypoint_idx, angle_idx, tilt_magnitude_deg, tilt_direction_idx, q_tuple)
+                existing_cost = visited_costs.get(state)
+                if existing_cost is not None and cost_so_far > existing_cost:
                     continue
                 
                 # Check if we reached the goal (last waypoint)
@@ -411,42 +477,55 @@ class StateSpace:
                 # Track if we found any valid moves
                 valid_moves_found = False
                 
-                # Calculate current tilt magnitude once (used multiple times below)
-                current_tilt_magnitude = np.sqrt(tilt_roll**2 + tilt_pitch**2)
-                current_tilt_deg = np.rad2deg(current_tilt_magnitude)
+                # Convert (magnitude, direction_idx) to (roll, pitch) for calculations
+                tilt_roll, tilt_pitch = self._tilt_key_to_roll_pitch(tilt_magnitude_deg, tilt_direction_idx)
+                current_tilt_deg = float(tilt_magnitude_deg)
                 
                 # Try tilts incrementally from 0° up to current_tilt
                 # This is more systematic than trying just 0° and current_tilt
-                tilts_to_try_deg = []
-                tilt_deg = 0.0
-                while tilt_deg <= current_tilt_deg + 1e-6:  # Include current_tilt (with small epsilon for float comparison)
-                    tilts_to_try_deg.append(tilt_deg)
-                    if tilt_deg >= current_tilt_deg:
-                        break
-                    tilt_deg += TILT_INCREMENT
-                    # Round to avoid floating point issues
-                    tilt_deg = round(tilt_deg, 1)
+                # Cache the list to avoid rebuilding for same tilt magnitude
+                if tilt_magnitude_deg not in self._cached_tilts_to_try:
+                    tilts_to_try_deg = []
+                    tilt_deg = 0
+                    while tilt_deg <= tilt_magnitude_deg:
+                        tilts_to_try_deg.append(tilt_deg)
+                        if tilt_deg >= tilt_magnitude_deg:
+                            break
+                        tilt_deg += int(TILT_INCREMENT)
+                    self._cached_tilts_to_try[tilt_magnitude_deg] = tilts_to_try_deg
+                else:
+                    tilts_to_try_deg = self._cached_tilts_to_try[tilt_magnitude_deg]
                 
                 # Try each tilt increment
-                for test_tilt_deg in tilts_to_try_deg:
+                for test_tilt_magnitude_deg in tilts_to_try_deg:
                     if valid_moves_found:
                         break  # Found a valid move, no need to try higher tilts
                     
-                    # Determine tilt direction to try (always just one direction)
-                    if abs(test_tilt_deg) < 1e-6:
-                        # 0° tilt: use 0,0
-                        next_tilt_roll, next_tilt_pitch = 0.0, 0.0
-                        next_tilt_deg = 0.0
-                    elif abs(test_tilt_deg - current_tilt_deg) < 1e-6:
+                    # Determine tilt (magnitude, direction_idx) to try
+                    if test_tilt_magnitude_deg == 0:
+                        # 0° tilt: use (0, 0)
+                        next_tilt_magnitude_deg, next_tilt_direction_idx = 0, 0
+                    elif test_tilt_magnitude_deg == tilt_magnitude_deg:
                         # Current tilt: use current direction
-                        next_tilt_roll, next_tilt_pitch = tilt_roll, tilt_pitch
-                        next_tilt_deg = current_tilt_deg
+                        next_tilt_magnitude_deg, next_tilt_direction_idx = tilt_magnitude_deg, tilt_direction_idx
+                    elif test_tilt_magnitude_deg in tilt_angles_deg:
+                        # Exact tilt increment: use same direction as current
+                        next_tilt_magnitude_deg, next_tilt_direction_idx = test_tilt_magnitude_deg, tilt_direction_idx
                     else:
-                        # Intermediate tilt: scale current direction proportionally
-                        scale_factor = test_tilt_deg / current_tilt_deg if current_tilt_deg > 1e-6 else 1.0
-                        next_tilt_roll = tilt_roll * scale_factor
-                        next_tilt_pitch = tilt_pitch * scale_factor
-                        next_tilt_deg = test_tilt_deg
+                        # Intermediate tilt: use current direction (will be scaled in IK computation)
+                        # For intermediate tilts, we still use the same direction_idx
+                        next_tilt_magnitude_deg, next_tilt_direction_idx = test_tilt_magnitude_deg, tilt_direction_idx
+                    
+                    # Convert (magnitude, direction_idx) to (roll, pitch) for IK computation
+                    next_tilt_roll, next_tilt_pitch = self._tilt_key_to_roll_pitch(next_tilt_magnitude_deg, next_tilt_direction_idx)
+                    
+                    # For intermediate tilts, we need to scale the vector
+                    if next_tilt_magnitude_deg not in [0] + tilt_angles_deg:
+                        # Scale the roll/pitch proportionally
+                        if tilt_magnitude_deg > 0:
+                            scale_factor = next_tilt_magnitude_deg / tilt_magnitude_deg
+                            next_tilt_roll = tilt_roll * scale_factor
+                            next_tilt_pitch = tilt_pitch * scale_factor
                     
                     # Try each movement direction with this tilt
                     for delta_wp, delta_ang in movements:
@@ -457,52 +536,56 @@ class StateSpace:
                         if next_waypoint_idx < 0 or next_waypoint_idx >= grid_count_x:
                             continue
                         
+                        # For intermediate tilts, we need to find closest precomputed or use scaled version
+                        # For now, use the base magnitude and direction_idx
                         next_viable_sols = self._get_ik_solutions(next_waypoint_idx, next_angle_idx, test_robot, 
-                                                                 next_tilt_roll, next_tilt_pitch)
+                                                                 next_tilt_magnitude_deg, next_tilt_direction_idx)
                         
                         # Track tested position (all tilts, projected to 2D grid)
-                        self._tested_positions.append((next_waypoint_idx, next_angle_idx))
+                        if self._tested_positions is not None:
+                            self._tested_positions.add((next_waypoint_idx, next_angle_idx))
                         
                         if len(next_viable_sols) == 0:
                             continue
                         
                         # Try all IK solutions
-                        for next_ik_solution_idx in range(len(next_viable_sols)):
-                            next_q = next_viable_sols[next_ik_solution_idx]
+                        for next_q in next_viable_sols:
                             
                             # Check joint limit: each joint must change by <= MAX_JOINT_CHANGE
                             q_diff = next_q - current_q
                             if np.any(np.abs(q_diff) > MAX_JOINT_CHANGE):
                                 continue
                             
-                            # Check collision along path
-                            if test_robot.is_path_colliding_with_maze(current_q, next_q):
-                                continue
+                            # Create next state with q tuple for hashing (needed for visited_costs check)
+                            # Use (magnitude, direction_idx) instead of (roll, pitch)
+                            next_q_tuple = tuple(next_q)
+                            next_state = (next_waypoint_idx, next_angle_idx, next_tilt_magnitude_deg, next_tilt_direction_idx, next_q_tuple)
                             
-                            # Calculate transition cost
-                            transition_cost = state_transition_cost(current_q, next_q, next_tilt_roll, next_tilt_pitch)
+                            # Calculate transition cost (needed for visited_costs comparison)
+                            transition_cost = state_transition_cost(current_q, next_q, next_tilt_magnitude_deg)
                             new_cost = cost_so_far + transition_cost
                             
-                            # Create next state with q tuple for hashing
-                            next_q_tuple = tuple(next_q)
-                            next_state = (next_waypoint_idx, next_angle_idx, next_tilt_roll, next_tilt_pitch, next_q_tuple)
+                            # Check if this is a better path (FAST check - do this BEFORE expensive collision check)
+                            existing_cost = visited_costs.get(next_state)
+                            if existing_cost is not None and new_cost >= existing_cost:
+                                continue
                             
-                            # Check if this is a better path
-                            if next_state in visited_costs and new_cost >= visited_costs[next_state]:
+                            # Check collision along path (SLOW check - only do if state is new/better)
+                            if test_robot.is_path_colliding_with_maze(current_q, next_q):
                                 continue
                             
                             # Update visited costs and add to queue
                             visited_costs[next_state] = new_cost
                             # Extract parent q_tuple from current state (q_tuple is at index 4)
                             current_q_tuple = state[4]
-                            parents[next_q_tuple] = (current_q_tuple, next_waypoint_idx, next_angle_idx, next_tilt_roll, next_tilt_pitch)
+                            parents[next_q_tuple] = (current_q_tuple, next_waypoint_idx, next_angle_idx, next_tilt_magnitude_deg, next_tilt_direction_idx)
                             heapq.heappush(priority_queue, (new_cost, next_waypoint_idx, next_angle_idx, 
-                                                             next_tilt_roll, next_tilt_pitch, next_q_tuple))
+                                                             next_tilt_magnitude_deg, next_tilt_direction_idx, next_q_tuple))
                             valid_moves_found = True
                 
                 # If still no valid moves, try increasing tilt at this position (fallback)
                 if not valid_moves_found:
-                    try_tilts_at_position(waypoint_idx, angle_idx, tilt_roll, tilt_pitch, 
+                    try_tilts_at_position(waypoint_idx, angle_idx, tilt_magnitude_deg, tilt_direction_idx,
                                          current_q, cost_so_far, state)
         
         finally:
@@ -516,9 +599,9 @@ class StateSpace:
         # Compute best IK solution at each position (minimum cost) - only for 0° tilt for visualization
         # Store q_tuple instead of index for robustness
         best_ik_at_position = {}
-        for (waypoint_idx, angle_idx, tilt_roll, tilt_pitch, q_tuple), cost in visited_costs.items():
+        for (waypoint_idx, angle_idx, tilt_magnitude_deg, tilt_direction_idx, q_tuple), cost in visited_costs.items():
             # Only consider 0° tilt for grid visualization
-            if abs(tilt_roll) < 1e-6 and abs(tilt_pitch) < 1e-6:
+            if tilt_magnitude_deg == 0:
                 key = (waypoint_idx, angle_idx)
                 if key not in best_ik_at_position or cost < best_ik_at_position[key][1]:
                     best_ik_at_position[key] = (q_tuple, cost)
@@ -529,18 +612,20 @@ class StateSpace:
             return None
         
         # Reconstruct path from best goal state to start
-        # parents[q_tuple] contains (parent_q_tuple, waypoint_idx, angle_idx, tilt_roll, tilt_pitch)
+        # parents[q_tuple] contains (parent_q_tuple, waypoint_idx, angle_idx, tilt_magnitude_deg, tilt_direction_idx)
         path_states = []
         current_q_tuple = best_goal_state[4]
         
-        # Add goal state
-        waypoint_idx, angle_idx, tilt_roll, tilt_pitch, q_tuple = best_goal_state
+        # Add goal state - convert (magnitude, direction_idx) to (roll, pitch) for path_states
+        waypoint_idx, angle_idx, tilt_magnitude_deg, tilt_direction_idx, q_tuple = best_goal_state
+        tilt_roll, tilt_pitch = self._tilt_key_to_roll_pitch(tilt_magnitude_deg, tilt_direction_idx)
         path_states.append((waypoint_idx, angle_idx, tilt_roll, tilt_pitch, q_tuple, visited_costs[best_goal_state]))
         
         # Follow parent chain backwards
         while current_q_tuple is not None and current_q_tuple in parents:
-            parent_q_tuple, waypoint_idx, angle_idx, tilt_roll, tilt_pitch = parents[current_q_tuple]
-            current_state = (waypoint_idx, angle_idx, tilt_roll, tilt_pitch, current_q_tuple)
+            parent_q_tuple, waypoint_idx, angle_idx, tilt_magnitude_deg, tilt_direction_idx = parents[current_q_tuple]
+            current_state = (waypoint_idx, angle_idx, tilt_magnitude_deg, tilt_direction_idx, current_q_tuple)
+            tilt_roll, tilt_pitch = self._tilt_key_to_roll_pitch(tilt_magnitude_deg, tilt_direction_idx)
             path_states.append((waypoint_idx, angle_idx, tilt_roll, tilt_pitch, current_q_tuple, visited_costs[current_state]))
             current_q_tuple = parent_q_tuple
         
@@ -548,8 +633,9 @@ class StateSpace:
         # Check if it's a valid start state (waypoint_idx=0) and add it
         if current_q_tuple is not None:
             # Try to find the state in visited_costs
-            for (wp_idx, ang_idx, tr, tp, q_t), cost in visited_costs.items():
+            for (wp_idx, ang_idx, tilt_mag_deg, tilt_dir_idx, q_t), cost in visited_costs.items():
                 if q_t == current_q_tuple and wp_idx == 0:
+                    tr, tp = self._tilt_key_to_roll_pitch(tilt_mag_deg, tilt_dir_idx)
                     path_states.append((wp_idx, ang_idx, tr, tp, q_t, cost))
                     break
         
@@ -611,7 +697,7 @@ class StateSpace:
             for iy in range(grid_count_y):
                 for ix in range(grid_count_x):
                     # Get IK solutions for this position (computes on the fly if not cached)
-                    viable_sols = self._get_ik_solutions(ix, iy, test_robot, 0.0, 0.0)
+                    viable_sols = self._get_ik_solutions(ix, iy, test_robot, 0, 0)
                     
                     if viable_sols is None or len(viable_sols) == 0:
                         distance_grid[iy, ix] = -0.05
@@ -798,7 +884,7 @@ class StateSpace:
             iy = np.clip(iy, 0, grid_count_y - 1)
             
             # Get IK solutions for this point (0° tilt only for visualization)
-            cache_key = (ix, iy, 0.0, 0.0)
+            cache_key = (ix, iy, 0, 0)
             viable_sols = ik_solutions.get(cache_key, [])
             
             if len(viable_sols) == 0:
@@ -828,12 +914,10 @@ class StateSpace:
         
         # Plot tested positions as small crosses (all tilts projected to 2D grid)
         if self._tested_positions is not None and len(self._tested_positions) > 0:
-            # Deduplicate positions to avoid overplotting (same position tested multiple times with different tilts)
-            tested_positions_set = set(self._tested_positions)
-            
+            # tested_positions is already a set, no need to deduplicate
             tested_x = []
             tested_y = []
-            for wp_idx, ang_idx in tested_positions_set:
+            for wp_idx, ang_idx in self._tested_positions:
                 # Center the cross in the grid rectangle
                 # x: rectangles span from wp_idx/grid_count_x to (wp_idx+1)/grid_count_x, center is at (wp_idx+0.5)/grid_count_x
                 x_coord = (wp_idx + 0.5) / grid_count_x
