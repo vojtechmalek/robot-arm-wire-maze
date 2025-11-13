@@ -191,7 +191,6 @@ class PybulletRobot(CRSRobot):
                 return True
         return False   
     
-    # TODO: following two functions are not used anymore, remove them unless needed
     def get_robot_to_maze_distance(self) -> float:
         """Get the minimum distance between robot and maze."""
         points = self._bullet_client.getClosestPoints(bodyA=self._robot_urdf, bodyB=self._maze_urdf, distance=100.0)

@@ -23,11 +23,11 @@ for image_file in image_files:
 
 image_tuples = list(zip(image_vectors, image_ids))
 
-def get_maze_type(img, k = 3):
+def get_maze_type(img, k = 5):
     detection_img = get_detection_image(img)
     if detection_img is None:
         return None
-    
+        
     img_vector = detection_img.flatten() / 255.0
     
     nearest_neighbors = sorted(
@@ -44,4 +44,20 @@ def get_maze_type(img, k = 3):
             type_counts[maze_type] = 1
 
     predicted_type = max(type_counts, key=type_counts.get)
+
+    detected_maze = predicted_type
+    confidence = type_counts[predicted_type] / k
+
+    if detected_maze is None or detected_maze == "NONE" or confidence < 0.7:
+        print(f"[MAIN] Could not detect maze type from image, what maze is this?, confidence={confidence:.2f}")
+        maze = input("Enter maze type (A, B, C, D, E): ").strip().upper()
+
+    # save detection image for debugging
+    # random filename to avoid overwriting
+    timestamp = int(np.random.rand() * 1e9)
+    filename1 = f"maze_detection_images/debug/{detected_maze}_{timestamp}.png"
+    cv2.imwrite(filename1, detection_img)
+    filename2 = f"maze_detection_images/debug/orig_{detected_maze}_{timestamp}.png"
+    cv2.imwrite(filename2, img)
+
     return predicted_type

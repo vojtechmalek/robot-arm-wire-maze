@@ -105,7 +105,6 @@ def get_tilt_directions(num_directions: int = 4) -> list[tuple[float, float]]:
 
 ########################## Robot movement ##########################
 
-#TODO remove - not used anymore
 def move_robot_by_ring_pose(robot,
                             ring_pose: Pose,
                             wait_for_motion_stop: bool = True) -> bool:

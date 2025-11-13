@@ -12,12 +12,8 @@ from . import utils
 # To avoid circular import
 if TYPE_CHECKING:
     from .pybullet_robot import PybulletRobot
-#
 
-#TODO add some way to get before the start of the maze, currently it just tests the start position at increasing tilts 
-#TODO       until it finds a viable one without considering how to get there
 #TODO clean up visualization
-#TODO maybe give some penalty for staying on tilts
 
 GROUND_LIMIT = 0.05  # meters
 
@@ -35,6 +31,15 @@ Z_OFFSET = 0.02  # meters, vertical offset based on hoop angle
 # COST FUNCTIONS
 ################################################################################################################
 
+def tilt_penalty(tilt_magnitude_deg: int) -> float:
+    """
+    Calculate the penalty for being in a tilted state.
+    """
+    if tilt_magnitude_deg > 0:
+        increments = int(np.ceil(tilt_magnitude_deg / TILT_INCREMENT))
+        return TILT_BASE_PENALTY + increments * TILT_INCREMENTAL_PENALTY
+    return 0.0
+
 def state_transition_cost(old_q: np.ndarray, new_q: np.ndarray, 
                           new_tilt_magnitude_deg: int) -> float:
     """
@@ -45,13 +50,9 @@ def state_transition_cost(old_q: np.ndarray, new_q: np.ndarray,
     
     # Transition penalty: penalize any step that ends in a tilted state
     # This encourages staying at lower tilts
-    # Penalty: 1 base + 1 per increment (1 for 5°, 2 for 10°, 3 for 15°, etc.)
-    tilt_penalty = 0.0
-    if new_tilt_magnitude_deg > 0:  # Destination state is tilted
-        increments = int(np.ceil(new_tilt_magnitude_deg / TILT_INCREMENT))
-        tilt_penalty = TILT_BASE_PENALTY + increments * TILT_INCREMENTAL_PENALTY
+    tilt_penalty_value = tilt_penalty(new_tilt_magnitude_deg)
     
-    return step_cost + tilt_penalty
+    return step_cost + tilt_penalty_value
 
 ################################################################################################################
 # STATE SPACE
@@ -305,7 +306,6 @@ class StateSpace:
         
         # Function thats called when we are stuck (cant progress forwards from this state) and
         # it continues in the same direction by scaling current values
-        #! this could be improved probably
         def try_tilts_at_position(wp_idx: int, ang_idx: int, current_tilt_magnitude_deg: int, current_tilt_direction_idx: int,
                                    current_q: np.ndarray, current_cost: float, current_state: tuple):
             """
@@ -394,7 +394,6 @@ class StateSpace:
                 parents[q_tuple] = (None, 0, angle_idx, 0, 0)
                 heapq.heappush(priority_queue, (0.0, 0, angle_idx, 0, 0, q_tuple))
         
-        #TODO maybe continue only wth some if we found valid start states, would speed it up but risks failing to find a solution
         if True: #zero_tilt_total_solutions == 0:
             # Try each tilt angle progressively
             for idx, tilt_angle_deg in enumerate(tilt_angles_deg):
@@ -413,7 +412,6 @@ class StateSpace:
                         # Get IK solutions with this tilt (use scaled magnitude and same direction)
                         # For scaled tilts, we need to find the closest precomputed vector
                         # For now, use the base tilt_angle_deg and direction_idx
-                        # TODO: handle scaled tilts properly
                         viable_sols = self._get_ik_solutions(0, angle_idx, test_robot, 
                                                              tilt_angle_deg, direction_idx)
                         
@@ -422,10 +420,8 @@ class StateSpace:
                         
                         tilt_angle_valid_states += len(viable_sols)
                         
-                        # Start states: no transition penalty (they're initial states, not transitions)
-                        # No state penalty either - we only penalize entering tilted states via transitions
-                        zero_q = np.array([0, 0, 0, 0, 0, 0]) #TODO temrporary for 0 q penalty
-                        start_cost = state_transition_cost(zero_q, zero_q, scaled_magnitude_deg)
+                        # Start states: penalize starting in a tilted state (no joint transition cost)
+                        start_cost = tilt_penalty(scaled_magnitude_deg)
                         
                         # Try all IK solutions
                         for tilted_q in viable_sols:
@@ -441,13 +437,6 @@ class StateSpace:
                             parents[q_tuple] = (None, 0, angle_idx, scaled_magnitude_deg, direction_idx)
                             heapq.heappush(priority_queue, (start_cost, 0, angle_idx, scaled_magnitude_deg, direction_idx, q_tuple))
                             tilt_angle_valid_states += 1
-                
-                
-                # Stop once we find valid start states (prefer lower tilt angles due to penalties)
-                # TODO maybe terminate, but then sometimes fails
-                if tilt_angle_valid_states > 0:
-                    pass
-                    #break
             
         # Track the best goal state (lowest cost to reach final waypoint)
         best_goal_state = None

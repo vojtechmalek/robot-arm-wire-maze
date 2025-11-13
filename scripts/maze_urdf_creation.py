@@ -2,7 +2,6 @@
 """
 Generate a URDF maze where each straight segment becomes both a visual
 and a collision box (aligned with XYZ direction from waypoints).
-Also adds a small visual arrow at the origin pointing +X for orientation.
 """
 
 import os
@@ -174,7 +173,7 @@ def main():
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(urdf_text)
 
-    print(f"✅ Generated {out_path} with {len(pts)-1} segments and a +X arrow visual.")
+    print(f"Generated {out_path} with {len(pts)-1} segments.")
 
 if __name__ == "__main__":
     main()

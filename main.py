@@ -5,10 +5,11 @@ from time import sleep
 from datetime import datetime
 
 from detection.detect_maze import get_maze_type
+from scripts.camera_distortion import undistort_image, show_image
 
     
 # Configuration
-local_mode = True
+local_mode = False
 use_gui = True
 
 NUM_ANGLE_SAMPLES = 30
@@ -31,12 +32,19 @@ else:
     robot.wait_for_motion_stop()
     aruco_img = robot.grab_image()
 
-maze = get_maze_type(aruco_img)
-if maze is None or maze == "NONE":
-    print(f"[MAIN] Could not detect maze type from image, what maze is this?")
-    maze = input("Enter maze type (A, B, C, D, E): ").strip().upper()
+# show_image("Captured Image", aruco_img, wait_time=2)
+# undistort image using saved calibration
+aruco_img = undistort_image(aruco_img)
+# show_image("Undistorted Image", aruco_img, wait_time=2)
 
+maze = get_maze_type(aruco_img)
 print(f"[MAIN] Detected maze type: {maze}")
+
+if maze is None:
+    print("[MAIN] Maze type detection failed, exiting.")
+    if not local_mode:
+        robot.close()
+    exit(1)
 
 # detect maze position from image
 print("[MAIN] Detecting maze position from image...")

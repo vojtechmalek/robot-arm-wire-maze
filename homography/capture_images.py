@@ -12,7 +12,7 @@ Z_DEFAULT = 0.054
 
 # Default orientation: slight roll, camera looking down (Y flipped by π), zero yaw.
 # Matches the style used in utils.py, but explicit for readability here.
-RING_VIEW_RPY = np.array([-0.06, np.pi + 0.05, 0.0])  # [roll, pitch, yaw] (radians)
+RING_VIEW_RPY = np.array([0, np.pi, 0.0])  # [roll, pitch, yaw] (radians)
 
 LEFT_BOTTOM  = np.array([0.400, -0.200, Z_DEFAULT])
 LEFT_TOP     = np.array([0.250, -0.200, Z_DEFAULT])
@@ -20,7 +20,7 @@ RIGHT_TOP    = np.array([0.250,  0.150, Z_DEFAULT])
 RIGHT_BOTTOM = np.array([0.400,  0.150, Z_DEFAULT])
 
 ########################## Rotation matrix ##########################
-rotation_euler = np.array([-0.06, np.pi + 0.05, 0.0])
+rotation_euler = RING_VIEW_RPY
 
 R_x = np.array([[1, 0, 0],
                 [0, np.cos(rotation_euler[0]), -np.sin(rotation_euler[0])],
@@ -46,11 +46,11 @@ def show_image_and_get_action(img: np.ndarray, auto_keep: bool = False) -> str:
     If auto_keep=True, shows for ~0.5 s and returns 'k' automatically.
     """
     window = "Preview (k=keep, Esc=quit)"
-    cv2.imshow(window, img)
+    # cv2.imshow(window, img)
 
     if auto_keep:
-        cv2.waitKey(500)
-        cv2.destroyWindow(window)
+        # cv2.waitKey(500)
+        # cv2.destroyWindow(window)
         return 'k'
 
     while True:
@@ -129,7 +129,7 @@ def main() -> None:
             robot.initialize()
 
         # Iterate grid and capture
-        for pos in photo_positions(points_horizontal=5, points_vertical=5):
+        for pos in photo_positions(points_horizontal=10, points_vertical=10):
             print(f"\nMoving to: x={pos[0]:.3f}, y={pos[1]:.3f}, z={pos[2]:.3f}")
             try:
                 move_robot_xyz(robot, pos)

@@ -84,7 +84,7 @@ def main() -> None:
     kept_pixel_uv: list[tuple[float, float]] = []
     kept_robot_xy: list[tuple[float, float]] = []
 
-    cv2.namedWindow("preview", cv2.WINDOW_NORMAL)
+    # cv2.namedWindow("preview", cv2.WINDOW_NORMAL)
 
     ########################## Iterate over samples ##########################
     for path in paths:
@@ -124,9 +124,10 @@ def main() -> None:
         put_text_box(preview, lines, org=(10, 30))
 
         # Decide keep/ignore
-        cv2.imshow("preview", preview)
+        # cv2.imshow("preview", preview)
         while True:
-            key = cv2.waitKey(0) & 0xFF
+            # key = cv2.waitKey(0) & 0xFF
+            key = ord('k')
             if key in (ord('k'), ord('K')):
                 if uv is None:
                     print(f"[info] no detection in {basename}; cannot keep, ignoring.", file=sys.stderr)
@@ -139,10 +140,10 @@ def main() -> None:
                 print(f"[ignore] {basename}")
                 break
             elif key == 27:  # ESC
-                cv2.destroyAllWindows()
+                # cv2.destroyAllWindows()
                 raise SystemExit("Aborted by user (ESC).")
 
-    cv2.destroyAllWindows()
+    # cv2.destroyAllWindows()
 
     ########################## Fit homography ##########################
     if len(kept_pixel_uv) < 4:
