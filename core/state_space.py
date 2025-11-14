@@ -25,7 +25,7 @@ MAX_JOINT_CHANGE = np.deg2rad(90)  # Maximum allowed joint change per step (per 
 TILT_BASE_PENALTY = 5.0  # Base penalty for any non-zero tilt
 TILT_INCREMENTAL_PENALTY = 5.0  # Additional penalty per 5° increment beyond base
 
-Z_OFFSET = 0.02  # meters, vertical offset based on hoop angle
+Z_OFFSET = 0.005  # meters, vertical offset based on hoop angle
 
 ################################################################################################################
 # COST FUNCTIONS
@@ -117,7 +117,7 @@ class StateSpace:
         
         #! TEMP: adjust height based on angle
         # get hoop rotation z vector
-        hoop_z = pose.R[:, 1]
+        hoop_z = pose.R[:, 0]
         world_z = np.array([0, 0, 1])
         z_dot_product = np.dot(hoop_z, world_z)
 

@@ -155,7 +155,12 @@ class PybulletRobot(CRSRobot):
         # This is still fast since it's just 6 joints
         for jidx, pos in zip(self._joints, q_target):
             self._bullet_client.resetJointState(self._robot_urdf, jidx, pos)
-    
+
+    def in_limits(self, q) -> bool:
+        """Return whether the given joint configuration is in joint limits."""
+        ret = super().in_limits(q)
+        return ret and q[1] <= 0
+
     ####################################################################################################################
     # SIMULATION CONTROL
     ####################################################################################################################

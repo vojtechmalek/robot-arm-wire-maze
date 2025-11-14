@@ -115,8 +115,10 @@ def undistort_image(img):
     roi = calib_data['roi']
 
     # undistort
-    dst = cv2.undistort(img, mtx, dist, None, newcameramtx)
-
+    h, w = img.shape[:2]
+    mapx, mapy = cv2.initUndistortRectifyMap(mtx, dist, None, newcameramtx, (w,h), 5)
+    dst = cv2.remap(img, mapx, mapy, cv2.INTER_LINEAR)
+    
     # crop the image
     x, y, w, h = roi
     dst = dst[y:y+h, x:x+w]

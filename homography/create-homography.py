@@ -4,7 +4,13 @@ os.environ.setdefault("QT_QPA_PLATFORM", "xcb")  # robust OpenCV display on Linu
 import re
 import glob
 import sys
-from pathlib import Path
+from pathlib import PurePosixPath, Path
+
+# Add project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+from scripts.camera_distortion import undistort_image
 
 import cv2
 import numpy as np
@@ -101,6 +107,9 @@ def main() -> None:
         if img is None:
             print(f"[warn] could not read {path}", file=sys.stderr)
             continue
+
+        # undistort image
+        img = undistort_image(img)
 
         uv = detect_ring_center_uv(img)
 

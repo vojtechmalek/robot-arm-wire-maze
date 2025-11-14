@@ -11,6 +11,7 @@ from scripts.camera_distortion import undistort_image, show_image
 # Configuration
 local_mode = False
 use_gui = True
+run_robot_calibration = False
 
 NUM_ANGLE_SAMPLES = 30
 STEP = 1
@@ -46,9 +47,17 @@ if maze is None:
         robot.close()
     exit(1)
 
+# confirm maze type with user
+user_input = input(f"Detected maze type is '{maze}'. Is this correct? Press enter to confirm or type correct maze type (A, B, C, D, E): ").strip().upper()
+if user_input in ["A", "B", "C", "D", "E"]:
+    maze = user_input
+    print(f"[MAIN] Using maze type: {maze}")
+else:
+    print(f"[MAIN] Confirmed maze type: {maze}")
+
 # detect maze position from image
 print("[MAIN] Detecting maze position from image...")
-maze_pose = base_detection.detect_base_position(aruco_img)
+maze_pose = base_detection.detect_base_position(aruco_img, display=False)
 
 # Initialize robot simulation (with GUI for visualization)
 print("[MAIN] Initializing robot simulation...")
@@ -57,6 +66,9 @@ pybullet_robot = PybulletRobot(maze=maze, maze_pose=maze_pose, use_gui=use_gui, 
 # Find path (calculates state space on-the-fly)
 print("[MAIN] Finding path")
 
+if not local_mode and run_robot_calibration:
+    print("[MAIN] Running robot calibration...")
+    robot.initialize()
 
 start_time = datetime.now()
 q_path = pybullet_robot.find_path(
@@ -66,6 +78,11 @@ q_path = pybullet_robot.find_path(
     num_tilt_directions=NUM_TILT_DIRECTIONS
 )
 end_time = datetime.now()
+
+if not local_mode and run_robot_calibration:
+    print("[MAIN] Moving robot to home position...")
+    robot.move_to_q(robot.q_home)
+    robot.wait_for_motion_stop()
 
 # Calculate and print total time
 elapsed_time = (end_time - start_time).total_seconds()

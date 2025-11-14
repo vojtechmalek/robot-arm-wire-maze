@@ -50,7 +50,7 @@ def get_maze_type(img, k = 5):
 
     if detected_maze is None or detected_maze == "NONE" or confidence < 0.7:
         print(f"[MAIN] Could not detect maze type from image, what maze is this?, confidence={confidence:.2f}")
-        maze = input("Enter maze type (A, B, C, D, E): ").strip().upper()
+        detected_maze = input("Enter maze type (A, B, C, D, E): ").strip().upper()
 
     # save detection image for debugging
     # random filename to avoid overwriting
@@ -60,4 +60,4 @@ def get_maze_type(img, k = 5):
     filename2 = f"maze_detection_images/debug/orig_{detected_maze}_{timestamp}.png"
     cv2.imwrite(filename2, img)
 
-    return predicted_type
+    return detected_maze
