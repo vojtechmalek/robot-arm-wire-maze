@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Optional, Union
+from typing import Optional
 from . import utils
 
 
@@ -15,6 +15,7 @@ class Pose:
                  rpy: Optional[np.ndarray] = None,  # [roll, pitch, yaw] in radians (ZYX)
                  quaternion: Optional[np.ndarray] = None,  # [w, x, y, z] quaternion
                  ):
+
         # Initialize to default values
         self._R = np.eye(3)
         self._p = np.zeros(3)
@@ -23,10 +24,13 @@ class Pose:
         if T is not None:
             self._R = T[:3, :3].copy()
             self._p = T[:3, 3].copy()
+
         if R is not None:
             self._R = np.array(R, dtype=float)
+
         if rpy is not None:
             self._R = utils.rotzyx(rpy[0], rpy[1], rpy[2])
+
         if quaternion is not None:
             w, x, y, z = quaternion
             self._R = np.array([
@@ -34,6 +38,7 @@ class Pose:
                 [2*(x*y + z*w), 1 - 2*(x*x + z*z), 2*(y*z - x*w)],
                 [2*(x*z - y*w), 2*(y*z + x*w), 1 - 2*(x*x + y*y)]
             ], dtype=float)
+
         if p is not None:
             self._p = np.array(p, dtype=float)
         
@@ -79,9 +84,9 @@ class Pose:
     @property
     def rpy(self) -> np.ndarray:
         """
-        Get RPY Euler angles [roll, pitch, yaw] in radians (ZYX convention).
+        Get RPY Euler angles [roll, pitch, yaw] in radians.
         """
-        # Extract RPY from rotation matrix (ZYX convention)
+        # Extract RPY from rotation matrix
         R = self._R
         # Handle singularities at pitch = ±π/2
         sy = np.sqrt(R[0, 0]**2 + R[1, 0]**2)
@@ -98,32 +103,17 @@ class Pose:
         
         return np.array([roll, pitch, yaw])
       
-    def __matmul__(self, other: Union['Pose', np.ndarray]) -> Union['Pose', np.ndarray]:
+    def __matmul__(self, other: 'Pose') -> 'Pose':
         """
-        Compose poses: self @ other
+        self @ other
         """
-        if isinstance(other, Pose):
-            # Compose two poses
-            T_result = self.T @ other.T
-            return Pose(T=T_result)
-        elif isinstance(other, np.ndarray):
-            # Transform a point/vector
-            if other.shape == (3,):
-                # Point
-                return self._R @ other + self._p
-            elif other.shape == (4,):
-                # Homogeneous point
-                return self.T @ other
-            else:
-                raise ValueError(f"Cannot transform array of shape {other.shape}")
-    
-    def __rmatmul__(self, other: np.ndarray) -> 'Pose':
-        """
-        Left multiplication: other @ self (for SE3 matrix composition)
-        """
-        if isinstance(other, np.ndarray) and other.shape == (4, 4):
-            T_result = other @ self.T
-            return Pose(T=T_result)
-        return NotImplemented
+        T_result = self.T @ other.T
+        return Pose(T=T_result)
 
+    def __rmatmul__(self, other: 'Pose') -> 'Pose':
+        """
+        other @ self
+        """
+        T_result = other.T @ self.T
+        return Pose(T=T_result)
 

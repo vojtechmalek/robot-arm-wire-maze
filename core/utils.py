@@ -4,11 +4,9 @@ from .pose import Pose
 
 ########################## Constants ##########################
 
-#rpy_offset = np.array([-0.06, 0.05, 0.0])
-
 # Distance from ring center to flange
-HOOP_CENTER_DISTANCE = 0.135  # 135 mm
-HOOP_OFFSET_Z = 0.0133        # 13 mm above ring center
+HOOP_CENTER_DISTANCE = 0.135  # distance from ring center to flange in meters
+HOOP_OFFSET_Z = 0.0133        # the z height/2 of the flange in meters
 
 ########################## Rotation matrices around xyz axes ##########################
 
@@ -44,7 +42,7 @@ def get_waypoint_pose(waypoint: Dict[str, Any],
                      tilt_roll_delta: float = 0.0,
                      tilt_pitch_delta: float = 0.0) -> Pose:
     """
-    Calculate the pose for a waypoint given maze position and rotation, with optional tilt.
+    Calculate the pose for a waypoint given maze position and rotation, with optional tilts (roll and pitch).
     """
     pos = np.array(waypoint["pos"])
     rpy = np.array(waypoint["rpy"])
