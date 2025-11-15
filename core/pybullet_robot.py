@@ -14,7 +14,7 @@ from .pose import Pose
 from .state_space import StateSpace
 
 
-ROBOT_BASE_POSITION = [0, 0, 0.1 - 0.0250 + 0.0004]
+ROBOT_BASE_POSITION = [0, 0, 0.1 - 0.0250 + 0.0004] # offset to deal with similation/real robot difference
 NUM_STEPS_DEFAULT = 5 # number of steps to check for collision along a path (including start and end, which are already checked in pathfinding)
 
 
@@ -37,7 +37,6 @@ class PybulletRobot(CRSRobot):
         self._collision_padding = collision_padding
 
         # Initialize parent CRSRobot class
-        # CRSRobot expects a serial device (tty_dev) and baud rate, but we pass None since this is simulation-only
         # Set parameters for CRS97 robot from provided YAML file
         yaml_path = Path(inspect.getfile(CRSRobot)).parent / "params_crs97.yaml"
         with open(yaml_path, "r") as f:
@@ -91,7 +90,7 @@ class PybulletRobot(CRSRobot):
         for i in range(bullet_client.getNumJoints(self._robot_urdf)):
             info = bullet_client.getJointInfo(self._robot_urdf, i)
             joint_type = info[2]  # Joint type is at index 2 in joint info
-            # JOINT_REVOLUTE = 0 in PyBullet (revolving/rotating joints)
+            # JOINT_REVOLUTE = 0 in PyBullet
             if joint_type == p.JOINT_REVOLUTE or joint_type == 0:
                 self._joints.append(i)
             if len(self._joints) >= 6:
@@ -109,8 +108,6 @@ class PybulletRobot(CRSRobot):
             bullet_client.setJointMotorControl2(self._robot_urdf, i, p.VELOCITY_CONTROL, force=0)
 
         # Configure physics engine parameters
-        # numSolverIterations=0 and contactSlop=0 reduce computation (we don't need precise physics)
-        # This makes the simulation faster since we're mainly using it for collision detection
         bullet_client.setPhysicsEngineParameter(numSolverIterations=0, contactSlop=0)
 
         # Set initial robot joint positions (home position)
@@ -119,8 +116,6 @@ class PybulletRobot(CRSRobot):
         self._set_q(np.array(joint_positions))
 
         # Start simulation stepping thread if GUI is enabled
-        # PyBullet needs stepSimulation() called regularly to update the physics
-        # In GUI mode, we run this in a background thread at 240 Hz (standard simulation rate)
         self._sim_thread = None
         self._stop_event = None
         if self._use_gui:
@@ -151,8 +146,7 @@ class PybulletRobot(CRSRobot):
         # Adjust for joint direction differences (use pre-computed array)
         q_target = q_target * self._joint_direction_multipliers
 
-        # Update joints (PyBullet doesn't have batch resetJointStates, so we loop)
-        # This is still fast since it's just 6 joints
+        # Update joints
         for jidx, pos in zip(self._joints, q_target):
             self._bullet_client.resetJointState(self._robot_urdf, jidx, pos)
 
@@ -244,9 +238,7 @@ class PybulletRobot(CRSRobot):
         """
         Display an interactive visualization of the pathfinding cost space.
         Clicking or dragging on the plot will move the robot to that configuration.
-        
-        Args:
-            viz_0_tilt: If True, visualize distance grid for 0° tilt instead of cost grid.
+        If viz_0_tilt is True, visualize distance grid for 0° tilt.
         """
         self.state_space.visualize(viz_0_tilt=viz_0_tilt)
 
