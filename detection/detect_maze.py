@@ -52,12 +52,12 @@ def get_maze_type(img, k = 5):
         print(f"[MAIN] Could not detect maze type from image, what maze is this?, confidence={confidence:.2f}")
         detected_maze = input("Enter maze type (A, B, C, D, E): ").strip().upper()
 
-    # save detection image for debugging
-    # random filename to avoid overwriting
-    timestamp = int(np.random.rand() * 1e9)
-    filename1 = f"maze_detection_images/debug/{detected_maze}_{timestamp}.png"
-    cv2.imwrite(filename1, detection_img)
-    filename2 = f"maze_detection_images/debug/orig_{detected_maze}_{timestamp}.png"
-    cv2.imwrite(filename2, img)
+    # Debug image saving removed to reduce file size
+    # Uncomment below if debugging is needed:
+    # debug_dir = "maze_detection_images/debug"
+    # os.makedirs(debug_dir, exist_ok=True)
+    # timestamp = int(np.random.rand() * 1e9)
+    # cv2.imwrite(f"{debug_dir}/{detected_maze}_{timestamp}.png", detection_img)
+    # cv2.imwrite(f"{debug_dir}/orig_{detected_maze}_{timestamp}.png", img)
 
     return detected_maze

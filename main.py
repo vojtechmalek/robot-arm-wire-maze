@@ -9,7 +9,7 @@ from scripts.camera_distortion import undistort_image, show_image
 
     
 # Configuration
-local_mode = False
+local_mode = True
 use_gui = True
 run_robot_calibration = False
 
