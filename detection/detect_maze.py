@@ -17,7 +17,7 @@ for image_file in image_files:
     img_vector = img.flatten() / 255.0  # normalize pixel values to [0, 1]
     image_vectors.append(img_vector)
 
-    # Extract maze type from filename (e.g., A_00.png -> A)
+    # Extract maze type from filename
     maze_type = image_file.split('_')[0]
     image_ids.append(maze_type)
 

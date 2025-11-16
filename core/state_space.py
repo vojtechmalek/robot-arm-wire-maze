@@ -568,14 +568,13 @@ class StateSpace:
         # If we stopped because current_q_tuple is not in parents, it might be a start state
         # Check if it's a valid start state (waypoint_idx=0) and add it
         if current_q_tuple is not None:
-            # Try to find the state in visited_costs
             for (wp_idx, ang_idx, tilt_mag_deg, tilt_dir_idx, q_t), cost in visited_costs.items():
                 if q_t == current_q_tuple and wp_idx == 0:
                     tr, tp = self._tilt_key_to_roll_pitch(tilt_mag_deg, tilt_dir_idx)
                     path_states.append((wp_idx, ang_idx, tr, tp, q_t, cost))
                     break
         
-        path_states = path_states[::-1]  # Reverse to get start -> goal
+        path_states = path_states[::-1]  # reverse to get start -> goal
         self._path_states = path_states
         
         # Print path details
@@ -597,7 +596,7 @@ class StateSpace:
         # Store q_path for visualization playback
         self._q_path = q_path
         
-        # Debug: print path summary
+        # Print path summary
         num_tilted_steps = sum(1 for _, _, tr, tp, _, _ in path_states if abs(tr) > 1e-6 or abs(tp) > 1e-6)
         print(f"[STATE_SPACE] Path found with {len(path_states)} steps, {num_tilted_steps} steps with tilt")
         
@@ -632,7 +631,7 @@ class StateSpace:
             print("Calculating distance grid for 0° tilt...")
             for iy in range(grid_count_y):
                 for ix in range(grid_count_x):
-                    # Get IK solutions for this position (computes on the fly if not cached)
+                    # Get IK solutions for this position (if not cached)
                     viable_sols = self._get_ik_solutions(ix, iy, test_robot, 0, 0)
                     
                     if viable_sols is None or len(viable_sols) == 0:
@@ -854,10 +853,7 @@ class StateSpace:
             tested_x = []
             tested_y = []
             for wp_idx, ang_idx in self._tested_positions:
-                # Center the cross in the grid rectangle
-                # x: rectangles span from wp_idx/grid_count_x to (wp_idx+1)/grid_count_x, center is at (wp_idx+0.5)/grid_count_x
                 x_coord = (wp_idx + 0.5) / grid_count_x
-                # y: rectangles span from ang_idx/grid_count_y*360 to (ang_idx+1)/grid_count_y*360, center is at (ang_idx+0.5)/grid_count_y*360
                 angle_offset_deg = (ang_idx + 0.5) / grid_count_y * 360
                 tested_x.append(x_coord)
                 tested_y.append(angle_offset_deg)
@@ -871,14 +867,10 @@ class StateSpace:
             path_y = []
             tilt_magnitudes = []
             for i, (waypoint_idx, angle_idx, tilt_roll, tilt_pitch, q_tuple, cost_so_far) in enumerate(self._path_states):
-                # Center the dot in the grid rectangle
-                # x: rectangles span from wp_idx/grid_count_x to (wp_idx+1)/grid_count_x, center is at (wp_idx+0.5)/grid_count_x
                 x_coord = (waypoint_idx + 0.5) / grid_count_x
-                # y: rectangles span from ang_idx/grid_count_y*360 to (ang_idx+1)/grid_count_y*360, center is at (ang_idx+0.5)/grid_count_y*360
                 angle_offset_deg = (angle_idx + 0.5) / grid_count_y * 360
                 path_x.append(x_coord)
                 path_y.append(angle_offset_deg)
-                # Calculate tilt magnitude in degrees
                 tilt_magnitude = np.sqrt(tilt_roll**2 + tilt_pitch**2)
                 tilt_magnitude_deg = np.rad2deg(tilt_magnitude)
                 tilt_magnitudes.append(tilt_magnitude_deg)
@@ -887,7 +879,7 @@ class StateSpace:
             tilt_magnitudes = np.array(tilt_magnitudes)
             max_tilt = max(tilt_magnitudes) if len(tilt_magnitudes) > 0 else 1.0
             if max_tilt < 1e-6:
-                max_tilt = 1.0  # Avoid division by zero
+                max_tilt = 1.0
             
             # Create scatter plot with gradient colors based on tilt magnitude
             scatter = ax.scatter(path_x, path_y, c=tilt_magnitudes, s=50, marker='o', 

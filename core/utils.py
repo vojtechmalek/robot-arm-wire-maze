@@ -112,11 +112,11 @@ def move_robot_by_ring_pose(robot,
     """
 
     # Convert ring-center pose to flange pose
-    # Flange is offset from ring center along ring's x-axis
+    # Flange is offset from ring center along rings x-axis
     flange_offset = Pose(p=np.array([HOOP_CENTER_DISTANCE, 0.0, -HOOP_OFFSET_Z]))
     flange_pose = ring_pose @ flange_offset
     
-    # Solve inverse kinematics (robot.ik expects SE3 matrix)
+    # Solve inverse kinematics
     ik_sols = robot.ik(flange_pose.T)
     if len(ik_sols) == 0:
         print("No IK solutions found for the target position.")

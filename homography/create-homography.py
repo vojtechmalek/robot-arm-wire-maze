@@ -21,19 +21,16 @@ import numpy as np
 FNAME_RE = re.compile(r"x_([A-Za-z0-9.\-]+)__y_([A-Za-z0-9.\-]+)\.png$", re.IGNORECASE)
 
 def decode_coord(token: str) -> float:
-    """Convert our safe token form back to a float.
-    Examples: "0p400" → 0.400, "m0p200" → -0.200
-    """
+    """ Decode the coordinate from the filename. """
     return float(token.replace("m", "-").replace("p", "."))
 
-
 ########################## Drawing & UI ##########################
+
 def draw_cross(img: np.ndarray, center, size: int = 20, thickness: int = 2) -> None:
     u, v = int(round(center[0])), int(round(center[1]))
     cv2.line(img, (u - size, v), (u + size, v), (0, 255, 0), thickness, cv2.LINE_AA)
     cv2.line(img, (u, v - size), (u, v + size), (0, 255, 0), thickness, cv2.LINE_AA)
     cv2.circle(img, (u, v), 3, (0, 0, 255), -1, cv2.LINE_AA)
-
 
 def put_text_box(img: np.ndarray, lines: list[str], org: tuple[int, int] = (10, 25)) -> None:
     x, y = org
@@ -42,15 +39,14 @@ def put_text_box(img: np.ndarray, lines: list[str], org: tuple[int, int] = (10, 
         cv2.putText(img, line, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1, cv2.LINE_AA)
         y += 24
 
-
 ########################## Detection params ##########################
-# Tuned for a green-ish ring; adjust as needed for your lighting/camera.
+
 HSV_LOWER = np.array([85, 120, 40], dtype=np.uint8)
 HSV_UPPER = np.array([115, 255, 160], dtype=np.uint8)
-MORPH_KERNEL = np.ones((30, 30), np.uint8)  # big kernel to close small gaps
-
+MORPH_KERNEL = np.ones((30, 30), np.uint8)
 
 ########################## Core logic ##########################
+
 def detect_ring_center_uv(bgr: np.ndarray) -> tuple[float, float] | None:
     """Return (u, v) pixel center of the ring if found; otherwise None."""
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
@@ -78,7 +74,6 @@ def detect_ring_center_uv(bgr: np.ndarray) -> tuple[float, float] | None:
 
 
 def main() -> None:
-    ########################## I/O setup ##########################
     script_dir = Path(__file__).resolve().parent
     images_dir = script_dir / "images"
     out_path = script_dir / "homography.npy"
@@ -90,9 +85,6 @@ def main() -> None:
     kept_pixel_uv: list[tuple[float, float]] = []
     kept_robot_xy: list[tuple[float, float]] = []
 
-    # cv2.namedWindow("preview", cv2.WINDOW_NORMAL)
-
-    ########################## Iterate over samples ##########################
     for path in paths:
         basename = os.path.basename(path)
         m = FNAME_RE.search(basename)
@@ -113,7 +105,6 @@ def main() -> None:
 
         uv = detect_ring_center_uv(img)
 
-        # Build a nice preview frame
         preview = img.copy()
         if uv is not None:
             draw_cross(preview, uv)
@@ -132,10 +123,7 @@ def main() -> None:
             ]
         put_text_box(preview, lines, org=(10, 30))
 
-        # Decide keep/ignore
-        # cv2.imshow("preview", preview)
         while True:
-            # key = cv2.waitKey(0) & 0xFF
             key = ord('k')
             if key in (ord('k'), ord('K')):
                 if uv is None:
@@ -149,17 +137,13 @@ def main() -> None:
                 print(f"[ignore] {basename}")
                 break
             elif key == 27:  # ESC
-                # cv2.destroyAllWindows()
                 raise SystemExit("Aborted by user (ESC).")
 
-    # cv2.destroyAllWindows()
-
-    ########################## Fit homography ##########################
     if len(kept_pixel_uv) < 4:
         raise SystemExit(f"Need at least 4 kept detections; got {len(kept_pixel_uv)}")
 
-    src = np.array(kept_pixel_uv, dtype=np.float32)  # pixels (u,v)
-    dst = np.array(kept_robot_xy, dtype=np.float32)  # robot (X,Y)
+    src = np.array(kept_pixel_uv, dtype=np.float32)
+    dst = np.array(kept_robot_xy, dtype=np.float32)
 
     H, mask = cv2.findHomography(src, dst, method=cv2.RANSAC, ransacReprojThreshold=3.0)
     if H is None:

@@ -35,6 +35,7 @@ R = R_z @ R_y @ R_x
 
 
 ########################## Small utilities ##########################
+
 def safe_coord_str(val: float) -> str:
     """Encode a float using 'm' for minus and 'p' for decimal point."""
     s = f"{val:.3f}"
@@ -42,8 +43,7 @@ def safe_coord_str(val: float) -> str:
 
 
 def show_image_and_get_action(img: np.ndarray, auto_keep: bool = False) -> str:
-    """Display an image and return 'k' (keep) or 'esc'.
-    If auto_keep=True, shows for ~0.5 s and returns 'k' automatically.
+    """Display an image and return 'k' (keep) or 'esc' (escape).
     """
     window = "Preview (k=keep, Esc=quit)"
     # cv2.imshow(window, img)
@@ -62,12 +62,11 @@ def show_image_and_get_action(img: np.ndarray, auto_keep: bool = False) -> str:
             cv2.destroyWindow(window)
             return 'esc'
 
-
 ########################## Robot motion ##########################
+
 def move_robot_xyz(robot: CRS97, position_xyz: np.ndarray) -> None:
     """Move robot flange to a pose whose origin is at position_xyz with
-    a fixed orientation (RING_VIEW_RPY). Chooses the IK solution closest
-    to the current joint state for smooth motion.
+    a fixed orientation (RING_VIEW_RPY).
     """
     target_pose = np.eye(4)
 
@@ -85,8 +84,8 @@ def move_robot_xyz(robot: CRS97, position_xyz: np.ndarray) -> None:
     robot.move_to_q(closest)
     robot.wait_for_motion_stop()
 
-
 ########################## Grid generation ##########################
+
 def lerp(a: np.ndarray, b: np.ndarray, t: float) -> np.ndarray:
     return a + t * (b - a)
 
@@ -108,8 +107,8 @@ def photo_positions(points_horizontal: int, points_vertical: int) -> list[np.nda
             positions.append(lerp(bottom, top, t))
     return positions
 
-
 ########################## Main ##########################
+
 def main() -> None:
     script_dir = Path(__file__).resolve().parent
     out_dir = script_dir / "images"
@@ -117,7 +116,6 @@ def main() -> None:
 
     robot = CRS97()
     try:
-        # Full initialize (homes robot). Press 's' to skip homing but still connect.
         print("Initializing robot...")
         do_skip = input("Press 's' + Enter to skip homing, or Enter to fully initialize: ").strip().lower() == 's'
         if do_skip:

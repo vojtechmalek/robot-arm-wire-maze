@@ -60,7 +60,6 @@ def get_detection_image(img):
         # Normalize angle to [-π, π] range
         base_rotation = ((base_rotation + np.pi) % (2 * np.pi)) - np.pi
 
-        
         # Calculate angles for each marker (for display)
         marker_angles = {}
         for i, marker_id in enumerate(ids_flat):
