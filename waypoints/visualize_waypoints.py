@@ -5,7 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 
-waypoints_raw = json.load(open("waypoints/opt_waypoint_paths/waypoints_E.json", "r"))
+waypoints_raw = json.load(open("waypoints/opt_waypoint_paths/waypoints_F.json", "r"))
 
 # use only every nth waypoint for clarity
 waypoints_raw = waypoints_raw[::1]

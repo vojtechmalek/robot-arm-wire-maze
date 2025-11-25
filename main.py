@@ -9,7 +9,7 @@ from scripts.camera_distortion import undistort_image, show_image
 
     
 # Configuration
-local_mode = False
+local_mode = True
 use_gui = True
 run_robot_calibration = False
 
@@ -20,7 +20,7 @@ MAX_TILT_ANGLE = 40  # Maximum tilt angle to try (degrees)
 NUM_TILT_DIRECTIONS = 8  # Number of tilt directions (4 = cardinal, 8 = cardinal + diagonal)
 
 if local_mode:
-    aruco_img = cv2.imread("aruco_images/aruco_20.png")
+    aruco_img = cv2.imread("aruco_images/aruco_1.png") #aruco_images/aruco_20.png
     # 1-4 A
     # 5-8 B
     # 9-12 C
@@ -39,6 +39,7 @@ aruco_img = undistort_image(aruco_img)
 # show_image("Undistorted Image", aruco_img, wait_time=2)
 
 maze = get_maze_type(aruco_img)
+maze = "S"
 print(f"[MAIN] Detected maze type: {maze}")
 
 if maze is None:

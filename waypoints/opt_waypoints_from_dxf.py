@@ -7,9 +7,9 @@ import utils
 # CONFIG
 ################################
 
-MAZE = "D"
+MAZE = "F"
 DXF_FILE = f"waypoints/dxf_paths/{MAZE}_path.dxf"        # your DXF
-OUTPUT_FILE = "waypoints/opt_waypoint_paths/waypoints_D.json"      # output JSON, working file
+OUTPUT_FILE = "waypoints/opt_waypoint_paths/waypoints_F.json"      # output JSON, working file
 TOOL_AXIS = 'X'                       # which tool axis should align with path tangent
 UNIT_SCALE = 0.001                    # DXF usualy mm -> convert to m
 WORLD_UP = np.array([0, 0, 1.0])      # reference "up" to stabilize roll
@@ -339,7 +339,7 @@ def main():
     R_prev = None 
 
     for i in range(len(path_pts)):
-        # tangent estimate like before
+        # tangent estimate
         i_a = max(i - SMOOTHING_FACTOR, 0)
         i_b = min(i + SMOOTHING_FACTOR, len(path_pts) - 1)
         p_a = path_pts[i_a]

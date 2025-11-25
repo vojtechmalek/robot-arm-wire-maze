@@ -118,6 +118,29 @@ class PybulletRobot(CRSRobot):
         joint_positions = [0, 0, np.deg2rad(-45), 0, np.deg2rad(-45), 0]
         self._set_q(np.array(joint_positions))
 
+        # Set the GUI camera so the user view matches an absolute camera position
+        # Desired camera position (meters) provided by user: x=0.945, y=0.0, z=0.38
+        try:
+            camera_pos = np.array([0.0, 0.945, 0.38], dtype=float)
+            target_pos = np.array(ROBOT_BASE_POSITION, dtype=float)
+            vec = camera_pos - target_pos
+            camera_distance = float(np.linalg.norm(vec))
+            # Apply user-requested zoom factor (0.6) as anti-zoom (divide to move further away)
+            ZOOM_FACTOR = 0.8
+            camera_distance = float(camera_distance / ZOOM_FACTOR)
+            # yaw: direction in XY plane (degrees)
+            camera_yaw = float(np.degrees(np.arctan2(vec[1], vec[0])))
+            # pitch: negative of elevation angle so positive pitch looks downward in PyBullet
+            camera_pitch = float(-np.degrees(np.arctan2(vec[2], np.linalg.norm(vec[:2]))))
+            # Use the Bullet client instance to set the visualizer camera
+            bullet_client.resetDebugVisualizerCamera(cameraDistance=camera_distance,
+                                                      cameraYaw=camera_yaw,
+                                                      cameraPitch=camera_pitch,
+                                                      cameraTargetPosition=target_pos.tolist())
+        except Exception:
+            # Fallback: ignore camera setting if something goes wrong (keeps previous behavior)
+            pass
+
         # Start simulation stepping thread if GUI is enabled
         # PyBullet needs stepSimulation() called regularly to update the physics
         # In GUI mode, we run this in a background thread at 240 Hz (standard simulation rate)

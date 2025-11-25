@@ -953,10 +953,9 @@ class StateSpace:
                 cbar_tilt = plt.colorbar(scatter, ax=ax, pad=colorbar_pad)
             else:
                 cbar_tilt = plt.colorbar(scatter, ax=ax)
-            cbar_tilt.set_label('Tilt Magnitude (degrees)', rotation=270, labelpad=15)
+            cbar_tilt.set_label('Tilt Magnitude (degrees)', rotation=90, labelpad=0)
             
             ax.legend()
-        
         self._visualization_fig = fig
         plt.show()
     
