@@ -9,7 +9,7 @@ from scripts.camera_distortion import undistort_image, show_image
 
     
 # Configuration
-local_mode = True
+local_mode = False
 use_gui = True
 run_robot_calibration = False
 
@@ -39,7 +39,7 @@ aruco_img = undistort_image(aruco_img)
 # show_image("Undistorted Image", aruco_img, wait_time=2)
 
 maze = get_maze_type(aruco_img)
-maze = "S"
+# maze = "S"
 print(f"[MAIN] Detected maze type: {maze}")
 
 if maze is None:
